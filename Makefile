@@ -1,4 +1,4 @@
-.PHONY: lint tests coverage run-api down-api
+.PHONY: lint tests coverage migrate run-api down-api
 
 COMPOSE = docker compose
 WEB_RUN = $(COMPOSE) run --rm --no-deps -e GRADESYNC_SQLITE=True web
@@ -11,6 +11,9 @@ tests:
 
 coverage:
 	$(WEB_RUN) sh -lc "coverage run --source=app,gradesync manage.py test && coverage report -m"
+
+migrate:
+	$(COMPOSE) exec web python manage.py migrate
 
 run-api:
 	$(COMPOSE) up -d --build

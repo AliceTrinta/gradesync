@@ -48,6 +48,7 @@ Na raiz do projeto, os atalhos principais sao:
 
 ```powershell
 make run-api
+make migrate
 make lint
 make tests
 make coverage
@@ -56,7 +57,8 @@ make down-api
 
 Descricao dos comandos:
 
-- `make run-api`: sobe os servicos com `docker compose up -d --build`.
+- `make run-api`: sobe os servicos com `docker compose up -d --build`; o container web aplica as migrations automaticamente antes de iniciar.
+- `make migrate`: executa manualmente `python manage.py migrate` no container web em execucao.
 - `make lint`: executa `ruff check .` dentro do container da aplicacao.
 - `make tests`: executa `python manage.py test` dentro do container com SQLite para testes.
 - `make coverage`: executa a suite de testes com `coverage` e gera o relatorio no terminal.
@@ -76,12 +78,6 @@ Esse comando cria e inicia:
 
 - `db`: banco PostgreSQL
 - `web`: aplicacao Django
-
-Depois aplique as migrations:
-
-```powershell
-docker compose exec web python manage.py migrate
-```
 
 A aplicacao ficara disponivel em:
 

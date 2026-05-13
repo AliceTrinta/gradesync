@@ -1,0 +1,48 @@
+{% extends 'app/base.html' %}
+
+{% block title %}GradeSync | Base visual{% endblock %}
+
+{% block content %}
+<section class="base-preview">
+    <div class="base-preview-card">
+        <p class="eyebrow">Bem vindo</p>
+        <p class="base-preview-text">
+            Em construção...
+        </p>
+
+        <div class="base-preview-meta">
+            <span class="version-pill">{{ version }}</span>
+            <code data-api-endpoint="{{ api_status_url }}">GET {{ api_status_url }}</code>
+        </div>
+
+        <div class="hero-actions">
+            <a class="primary" href="{{ admin_url }}">
+                <i class="fa-solid fa-screwdriver-wrench"></i>
+                Abrir admin
+            </a>
+            <a class="secondary" href="{{ api_status_url }}">
+                <i class="fa-solid fa-code"></i>
+                Ver status da API
+            </a>
+        </div>
+    </div>
+</section>
+
+<script>
+    (function () {
+        const endpoint = document.querySelector('[data-api-endpoint]');
+        if (!endpoint) {
+            return;
+        }
+
+        fetch(endpoint.dataset.apiEndpoint)
+            .then((response) => response.json())
+            .then((data) => {
+                endpoint.textContent = `GET ${endpoint.dataset.apiEndpoint} · API ${data.status}`;
+            })
+            .catch(() => {
+                endpoint.textContent = 'GET /api/status/';
+            });
+    })();
+</script>
+{% endblock %}
