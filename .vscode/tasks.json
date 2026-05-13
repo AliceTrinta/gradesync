@@ -1,0 +1,320 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Django tests",
+			"type": "shell",
+			"command": "python manage.py test",
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Run Django tests after cleanup",
+			"type": "shell",
+			"command": "python manage.py test",
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Run Django tests for domain rules",
+			"type": "shell",
+			"command": "python manage.py test",
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Run Django tests after test reorganization",
+			"type": "shell",
+			"command": "python manage.py test",
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Run Django tests for CRUD expansion",
+			"type": "shell",
+			"command": "C:/Users/ATG20/AppData/Local/Python/pythoncore-3.14-64/python.exe manage.py test",
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Run Django tests after aluno rename",
+			"type": "shell",
+			"command": "C:/Users/ATG20/AppData/Local/Python/pythoncore-3.14-64/python.exe manage.py test",
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Validate Makefile run-api",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"up",
+				"-d",
+				"--build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Check Docker Desktop process",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue | Select-Object Name, Id, MainWindowTitle | Out-String"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Start Docker Desktop",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"if (Test-Path 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe') { Start-Process 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe'; Write-Output 'DOCKER_DESKTOP_STARTED' } else { Write-Output 'DOCKER_DESKTOP_NOT_FOUND'; exit 1 }"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Start Docker Desktop direct",
+			"type": "shell",
+			"command": "if (Test-Path \"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\") { Start-Process \"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\"; Write-Output \"DOCKER_DESKTOP_STARTED\" } else { Write-Output \"DOCKER_DESKTOP_NOT_FOUND\"; exit 1 }",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Start Docker Desktop direct quoted",
+			"type": "shell",
+			"command": "if (Test-Path 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe') { Start-Process 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe'; Write-Output 'DOCKER_DESKTOP_STARTED' } else { Write-Output 'DOCKER_DESKTOP_NOT_FOUND'; exit 1 }",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Wait for Docker daemon",
+			"type": "shell",
+			"command": "$deadline = (Get-Date).AddMinutes(3); while ((Get-Date) -lt $deadline) { docker info *> $null; if ($LASTEXITCODE -eq 0) { Write-Output 'DOCKER_READY'; exit 0 }; Start-Sleep -Seconds 5 }; Write-Output 'DOCKER_TIMEOUT'; exit 1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Check make availability",
+			"type": "shell",
+			"command": "where.exe make",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validate run-api now",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"up",
+				"-d",
+				"--build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Validate lint target",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"run",
+				"--rm",
+				"--no-deps",
+				"-e",
+				"GRADESYNC_SQLITE=True",
+				"web",
+				"sh",
+				"-lc",
+				"ruff check ."
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validate tests target",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"run",
+				"--rm",
+				"--no-deps",
+				"-e",
+				"GRADESYNC_SQLITE=True",
+				"web",
+				"sh",
+				"-lc",
+				"python manage.py test"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validate coverage target",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"run",
+				"--rm",
+				"--no-deps",
+				"-e",
+				"GRADESYNC_SQLITE=True",
+				"web",
+				"sh",
+				"-lc",
+				"coverage run --source='app,gradesync' manage.py test && coverage report -m"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validate coverage target fixed",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"run",
+				"--rm",
+				"--no-deps",
+				"-e",
+				"GRADESYNC_SQLITE=True",
+				"web",
+				"sh",
+				"-lc",
+				"coverage run --source=app,gradesync manage.py test && coverage report -m"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validate down-api target",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"down"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Check make install location",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"winget list --id GnuWin32.Make; $candidates = @('C:\\Program Files (x86)\\GnuWin32\\bin\\make.exe','C:\\Program Files\\GnuWin32\\bin\\make.exe','C:\\ProgramData\\chocolatey\\bin\\make.exe'); foreach ($p in $candidates) { if (Test-Path $p) { Write-Output ('FOUND: ' + $p) } }"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Locate make executable",
+			"type": "shell",
+			"command": "Get-ChildItem 'C:\\Program Files (x86)\\GnuWin32\\bin\\make.exe','C:\\Program Files\\GnuWin32\\bin\\make.exe','C:\\ProgramData\\chocolatey\\bin\\make.exe' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Detect make path explicit",
+			"type": "shell",
+			"command": "$paths = @('C:\\Program Files (x86)\\GnuWin32\\bin\\make.exe','C:\\Program Files\\GnuWin32\\bin\\make.exe','C:\\ProgramData\\chocolatey\\bin\\make.exe'); $found = $paths | Where-Object { Test-Path $_ }; if ($found) { $found | ForEach-Object { Write-Output $_ } } else { Write-Output 'MAKE_NOT_FOUND' }",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Search make packages",
+			"type": "shell",
+			"command": "winget search make",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Search GNU packages",
+			"type": "shell",
+			"command": "winget search GnuWin32",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Install GNU Make",
+			"type": "shell",
+			"command": "winget install --exact --id GnuWin32.Make --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Find installed make path",
+			"type": "shell",
+			"command": "$paths = @('C:\\Program Files (x86)\\GnuWin32\\bin\\make.exe','C:\\Program Files\\GnuWin32\\bin\\make.exe','C:\\ProgramData\\chocolatey\\bin\\make.exe'); $found = $paths | Where-Object { Test-Path $_ }; if ($found) { $found | ForEach-Object { Write-Output $_ } } else { Write-Output 'MAKE_NOT_FOUND' }",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Add make to PATH",
+			"type": "shell",
+			"command": "$makeDir = 'C:\\Program Files (x86)\\GnuWin32\\bin'; $userPath = [Environment]::GetEnvironmentVariable('Path', 'User'); if ([string]::IsNullOrWhiteSpace($userPath)) { $newPath = $makeDir } elseif (($userPath -split ';') -contains $makeDir) { $newPath = $userPath } else { $newPath = ($userPath.TrimEnd(';') + ';' + $makeDir) }; [Environment]::SetEnvironmentVariable('Path', $newPath, 'User'); Write-Output 'PATH_UPDATED'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Validate make on PATH",
+			"type": "shell",
+			"command": "make --version",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}
