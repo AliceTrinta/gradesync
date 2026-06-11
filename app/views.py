@@ -27,3 +27,21 @@ def api_status(request):
             },
         }
     )
+
+def cadastro(request):
+    return render(request, "app/cadastro.html")
+
+def configuracoes(request):
+    return render(request, "app/config.html")
+
+def roteiro(request):
+    return render(request, "app/roteiro.html")
+
+def dispositivos(request):
+    return render(request, "app/dispositivos.html")
+
+def notificacoes(request):
+    return render(request, "app/notificacoes.html")
+
+def acessibilidade(request):
+    return render(request, "app/acessibilidade.html")
