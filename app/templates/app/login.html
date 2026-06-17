@@ -1,12 +1,12 @@
 {% extends 'app/base.html' %}
 
-{% block title %}GradeSync | Cadastro{% endblock %}
+{% block title %}GradeSync | Login{% endblock %}
 
 {% block content %}
 <section class="base-preview">
     <div class="base-preview-card">
-        <p class="eyebrow">Nova conta</p>
-        <h1 class="base-preview-title">Cadastro</h1>
+        <p class="eyebrow">Acesso</p>
+        <h1 class="base-preview-title">Entrar</h1>
 
         {% if messages %}
         <div class="messages">
@@ -27,11 +27,11 @@
                 {% endif %}
             </div>
             {% endfor %}
-            <button type="submit" class="primary">Criar conta</button>
+            <button type="submit" class="primary">Entrar</button>
         </form>
 
         <p class="form-footer">
-            Já tem conta? <a href="{% url 'app:login' %}">Entrar</a>
+            Não tem conta? <a href="{% url 'app:cadastro' %}">Cadastre-se</a>
         </p>
     </div>
 </section>

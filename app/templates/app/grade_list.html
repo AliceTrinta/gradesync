@@ -1,0 +1,29 @@
+{% extends 'app/base.html' %}
+
+{% block title %}GradeSync | Grades{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <h1>Minhas Grades</h1>
+    <a href="{% url 'app:grade-create' %}" class="primary">Nova Grade</a>
+</section>
+
+{% if grades %}
+<div class="list-cards">
+    {% for grade in grades %}
+    <div class="list-card">
+        <div class="list-card-info">
+            <strong>{{ grade.periodo }}</strong>
+            <span class="text-soft">{{ grade.turma_set.count }} turma(s)</span>
+        </div>
+        <div class="list-card-actions">
+            <a href="{% url 'app:grade-edit' grade.id %}">Editar</a>
+            <a href="{% url 'app:grade-delete' grade.id %}" class="danger">Excluir</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty-state">Nenhuma grade cadastrada ainda.</p>
+{% endif %}
+{% endblock %}

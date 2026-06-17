@@ -4,9 +4,21 @@ Todas as mudancas relevantes deste projeto serao documentadas neste arquivo.
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- Espaco reservado para as proximas funcionalidades, ajustes e correcoes.
+- Banco de dados substituido de PostgreSQL para SQLite (arquivo `db.sqlite3` em dev, in-memory em testes).
+- Makefile reescrito para executar comandos locais sem Docker.
+- Novo target `make setup` que cria venv, instala dependencias e aplica migrations.
+- Targets renomeados: `run-api` → `run`, `down-api` removido.
+- `requirements.txt` simplificado (removido `psycopg[binary]`).
+- `settings.py` simplificado (removidas variaveis de ambiente `POSTGRES_*` e `DJANGO_*`).
+- Documentacao (`readme.md`, `claude.md`) atualizada para refletir o novo fluxo sem Docker.
+
+### Removed
+
+- `docker-compose.yml`, `Dockerfile` e `.dockerignore` removidos.
+- Dependencia de Docker e Docker Compose para executar o projeto.
+- Dependencia de PostgreSQL.
 
 ## [0.2.0] - 2026-05-06
 

@@ -1,0 +1,26 @@
+{% extends 'app/base.html' %}
+
+{% block title %}GradeSync | {% if editing %}Editar{% else %}Nova{% endif %} Grade{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <h1>{% if editing %}Editar Grade{% else %}Nova Grade{% endif %}</h1>
+</section>
+
+<form method="post" class="form-stack">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="form-field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+        <span class="field-error">{{ field.errors.0 }}</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+    <div class="form-actions">
+        <button type="submit" class="primary">Salvar</button>
+        <a href="{% url 'app:grade-list' %}" class="secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

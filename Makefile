@@ -1,22 +1,27 @@
-.PHONY: lint tests coverage migrate run-api down-api
+.PHONY: setup migrate run lint tests coverage
 
-COMPOSE = docker compose
-WEB_RUN = $(COMPOSE) run --rm --no-deps -e GRADESYNC_SQLITE=True web
+PYTHON = python
 
-lint:
-	$(WEB_RUN) sh -lc "ruff check ."
-
-tests:
-	$(WEB_RUN) sh -lc "python manage.py test"
-
-coverage:
-	$(WEB_RUN) sh -lc "coverage run --source=app,gradesync manage.py test && coverage report -m"
+setup:
+	$(PYTHON) -m venv .venv
+	.venv\Scripts\pip install --upgrade pip
+	.venv\Scripts\pip install -r requirements.txt
+	.venv\Scripts\python manage.py migrate --noinput
+	@echo.
+	@echo Ambiente pronto. Ative com: .venv\Scripts\activate
 
 migrate:
-	$(COMPOSE) exec web python manage.py migrate
+	$(PYTHON) manage.py migrate
 
-run-api:
-	$(COMPOSE) up -d --build
+run:
+	$(PYTHON) manage.py runserver
 
-down-api:
-	$(COMPOSE) down
+lint:
+	$(PYTHON) -m ruff check .
+
+tests:
+	$(PYTHON) manage.py test
+
+coverage:
+	$(PYTHON) -m coverage run --source=app,gradesync manage.py test
+	$(PYTHON) -m coverage report -m

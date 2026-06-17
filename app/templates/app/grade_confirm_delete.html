@@ -1,0 +1,18 @@
+{% extends 'app/base.html' %}
+
+{% block title %}GradeSync | Excluir Grade{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <h1>Excluir Grade</h1>
+</section>
+
+<div class="confirm-box">
+    <p>Tem certeza que deseja excluir a grade <strong>{{ grade.periodo }}</strong>?</p>
+    <form method="post" class="form-actions">
+        {% csrf_token %}
+        <button type="submit" class="primary danger">Confirmar exclusão</button>
+        <a href="{% url 'app:grade-list' %}" class="secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
