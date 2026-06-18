@@ -1,128 +1,210 @@
 # GradeSync
 
-## Estrutura do projeto
+Sistema academico de gerenciamento de grades curriculares, simulacoes de matricula e avaliacoes, desenvolvido com Django.
 
-O projeto possui duas areas principais:
-
-- `app/`: onde fica o codigo da aplicacao e das regras de negocio.
-- `gradesync/`: pacote de configuracao do Django.
-
-A pasta `gradesync/` e a estrutura padrao criada pelo Django para guardar arquivos de configuracao do projeto, como:
-
-- `settings.py`: configuracoes da aplicacao, banco, apps instalados e ambiente.
-- `urls.py`: roteamento principal.
-- `asgi.py` e `wsgi.py`: pontos de entrada para execucao da aplicacao.
-
-Ou seja:
-
-- o diretorio principal de desenvolvimento continua sendo `app/`;
-- a pasta `gradesync/` continua importante porque ela configura e inicializa o projeto Django.
+---
 
 ## Requisitos
 
-Antes de subir a aplicacao, verifique se o sistema possui:
-
-- Docker
-- Docker Compose
-- Python 3
-- Git
-- GNU Make
+| Ferramenta | Versao minima | Obrigatorio |
+|-----------|---------------|-------------|
+| Python | 3.12+ | Sim |
+| Git | qualquer | Sim |
+| GNU Make | qualquer | Nao (facilita os comandos) |
 
 Para conferir rapidamente:
 
 ```powershell
-docker --version
-docker compose version
 python --version
 git --version
 make --version
 ```
 
-Se algum comando nao for reconhecido, instale ou ajuste o PATH da ferramenta antes de continuar.
+> **Windows:** se `make` nao for reconhecido, instale com `winget install GnuWin32.Make` e reinicie o terminal.
 
-> No Windows, se o `make` tiver sido instalado agora, talvez seja necessario fechar e abrir o terminal novamente para o PATH ser recarregado.
+---
 
-## Executando com Makefile
+## Setup inicial (primeira vez)
 
-Na raiz do projeto, os atalhos principais sao:
+### Com Make (recomendado)
 
 ```powershell
-make run-api
-make migrate
-make lint
+make setup
+.venv\Scripts\activate
+```
+
+O comando `make setup` faz tudo automaticamente:
+1. Cria o ambiente virtual `.venv`
+2. Atualiza o pip
+3. Instala as dependencias do `requirements.txt`
+4. Aplica todas as migrations (cria o banco SQLite)
+
+### Sem Make (manual)
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python manage.py migrate
+```
+
+> **Linux/macOS:** substitua `.venv\Scripts\activate` por `source .venv/bin/activate`.
+
+---
+
+## Executando a aplicacao
+
+Com o ambiente virtual ativado:
+
+```powershell
+python manage.py runserver
+```
+
+Ou:
+
+```powershell
+make run
+```
+
+A aplicacao ficara disponivel em **http://localhost:8000**.
+
+### Endpoints disponiveis
+
+| URL | Descricao |
+|-----|-----------|
+| `/` | Pagina base (interface web) |
+| `/admin/` | Painel administrativo Django |
+| `/api/status/` | JSON com status da aplicacao |
+| `/cadastro/` | Tela de cadastro |
+| `/configuracoes/` | Tela de configuracoes |
+| `/roteiro/` | Tela de roteiro |
+
+---
+
+## Comandos do Makefile
+
+| Comando | O que faz |
+|---------|-----------|
+| `make setup` | Cria venv, instala deps e aplica migrations |
+| `make run` | Inicia o servidor de desenvolvimento |
+| `make migrate` | Aplica migrations pendentes |
+| `make lint` | Executa o linter `ruff check .` |
+| `make tests` | Executa a suite de testes |
+| `make coverage` | Executa testes com cobertura e gera relatorio |
+
+---
+
+## Rodando testes
+
+```powershell
+python manage.py test
+```
+
+Ou:
+
+```powershell
 make tests
+```
+
+Para mais detalhe:
+
+```powershell
+python manage.py test -v 2
+```
+
+Para gerar relatorio de cobertura:
+
+```powershell
 make coverage
-make down-api
 ```
 
-Descricao dos comandos:
+---
 
-- `make run-api`: sobe os servicos com `docker compose up -d --build`; o container web aplica as migrations automaticamente antes de iniciar.
-- `make migrate`: executa manualmente `python manage.py migrate` no container web em execucao.
-- `make lint`: executa `ruff check .` dentro do container da aplicacao.
-- `make tests`: executa `python manage.py test` dentro do container com SQLite para testes.
-- `make coverage`: executa a suite de testes com `coverage` e gera o relatorio no terminal.
-- `make down-api`: encerra os servicos com `docker compose down`.
-
-Se preferir, os comandos Docker equivalentes continuam documentados abaixo.
-
-## Subindo a aplicacao
-
-Na raiz do projeto, execute:
+## Verificacoes uteis
 
 ```powershell
-docker compose up -d --build
+# Verificar configuracao geral do Django
+python manage.py check
+
+# Conferir se ha migrations pendentes nao geradas
+python manage.py makemigrations --check --dry-run
+
+# Lint (requer ruff instalado na venv)
+make lint
 ```
 
-Esse comando cria e inicia:
+---
 
-- `db`: banco PostgreSQL
-- `web`: aplicacao Django
+## Banco de dados
 
-A aplicacao ficara disponivel em:
+O projeto utiliza **SQLite**:
 
-```text
-http://localhost:8000
-```
+| Ambiente | Configuracao |
+|----------|--------------|
+| Desenvolvimento | Arquivo `db.sqlite3` na raiz do projeto |
+| Testes | Banco in-memory (automatico, sem configuracao) |
 
-## Rodando verificacoes
+- O arquivo `db.sqlite3` esta no `.gitignore` e nao e versionado.
+- Para resetar o banco local, basta apagar o arquivo e rodar `make migrate` novamente.
 
-Para verificar a configuracao do Django:
+---
+
+## Criando um superusuario (admin)
+
+Para acessar `/admin/`:
 
 ```powershell
-docker compose exec web python manage.py check
+python manage.py createsuperuser
 ```
 
-Para conferir se as migrations estao sincronizadas com os models:
+Siga as instrucoes no terminal (username, email, senha).
 
-```powershell
-docker compose exec web python manage.py makemigrations --check --dry-run
+---
+
+## Estrutura do projeto
+
+```
+gradesync/                  ← Raiz
+├── app/                    ← Codigo da aplicacao
+│   ├── models/             ← Entidades de dominio
+│   ├── repositories/       ← Acesso a dados
+│   ├── services/           ← Logica de negocio
+│   ├── templates/app/      ← Templates HTML
+│   ├── static/app/         ← CSS
+│   ├── tests/              ← Testes automatizados
+│   ├── admin.py            ← Configuracao do Django Admin
+│   ├── views.py            ← Views (web + API)
+│   ├── urls.py             ← Rotas da app
+│   └── exceptions.py       ← Excecoes de dominio
+├── gradesync/              ← Configuracao Django
+│   ├── settings.py
+│   ├── urls.py
+│   ├── wsgi.py
+│   └── asgi.py
+├── manage.py
+├── Makefile
+├── requirements.txt
+└── readme.md
 ```
 
-Para rodar os testes:
+### Camadas da arquitetura
 
-```powershell
-docker compose exec web python manage.py test -v 2
-```
+| Camada | Pasta | Responsabilidade |
+|--------|-------|------------------|
+| Models | `app/models/` | Entidades, validacao, constraints |
+| Repositories | `app/repositories/` | Queries, persistencia, full_clean antes de save |
+| Services | `app/services/` | Regras de negocio, transacoes atomicas |
+| Views | `app/views.py` | Interface HTTP |
 
-Para rodar cobertura sem o Makefile:
+---
 
-```powershell
-docker compose run --rm --no-deps -e GRADESYNC_SQLITE=True web sh -lc "coverage run --source=app,gradesync manage.py test && coverage report -m"
-```
+## Dependencias
 
-## Parando a aplicacao
+| Pacote | Versao | Uso |
+|--------|--------|-----|
+| Django | >=5.0, <6.0 | Framework web |
+| coverage | >=7.6, <8.0 | Relatorio de cobertura de testes |
+| ruff | >=0.11, <0.12 | Linter Python |
 
-Para parar os containers:
-
-```powershell
-docker compose down
-```
-
-Para parar e remover tambem o volume do PostgreSQL:
-
-```powershell
-docker compose down -v
-```
-
-Use `down -v` apenas quando quiser apagar os dados locais do banco.
+Todas sao instaladas automaticamente pelo `make setup` ou `pip install -r requirements.txt`.

@@ -1,13 +1,12 @@
-import os
 import sys
 from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret-key")
-DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+SECRET_KEY = "dev-only-secret-key"
+DEBUG = True
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -41,6 +40,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "app.context_processors.gradesync_context",
             ],
         },
     },
@@ -48,24 +48,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "gradesync.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "gradesync"),
-        "USER": os.getenv("POSTGRES_USER", "gradesync"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "gradesync"),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-        "PORT": os.getenv("POSTGRES_PORT", "5432"),
-    }
-}
-
-if os.getenv("GRADESYNC_SQLITE") == "True" or (
-    "test" in sys.argv and os.getenv("GRADESYNC_TEST_DATABASE", "sqlite") == "sqlite"
-):
+# SQLite: arquivo persistente para desenvolvimento, in-memory para testes.
+if "test" in sys.argv:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": ":memory:",
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -91,3 +86,6 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = "app:login"
+LOGIN_REDIRECT_URL = "app:home"
