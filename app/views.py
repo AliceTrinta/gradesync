@@ -462,3 +462,11 @@ def desativar_conta(request):
         return redirect("app:login")
 
     return render(request, "app/desativar_conta.html", {"aluno": aluno})
+
+
+def duvidas(request):
+    return render(request,"duvidas.html")
+
+
+def sobre(request):
+    return render(request,"sobre.html")

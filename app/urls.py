@@ -41,4 +41,10 @@ urlpatterns = [
     # Perfil
     path("perfil/", views.perfil, name="perfil"),
     path("perfil/desativar/", views.desativar_conta, name="desativar-conta"),
+
+    # Ajuda
+    path("duvidas/", views.duvidas, name="duvidas"),
+
+    # Configuracoes
+    path("sobre/", views.sobre, name="sobre"),
 ]
