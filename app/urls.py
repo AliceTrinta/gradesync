@@ -21,6 +21,9 @@ urlpatterns = [
     path("grades/<uuid:grade_id>/editar/", views.grade_edit, name="grade-edit"),
     path("grades/<uuid:grade_id>/excluir/", views.grade_delete, name="grade-delete"),
 
+    # Roteiro de Estudo
+    path("roteiro/", views.roteiro, name="roteiro"),
+
     # Simulações
     path("simulacoes/", views.simulacao_list, name="simulacao-list"),
     path("simulacoes/nova/", views.simulacao_create, name="simulacao-create"),
@@ -46,5 +49,9 @@ urlpatterns = [
     path("duvidas/", views.duvidas, name="duvidas"),
 
     # Configuracoes
+    path("configuracoes/", views.configuracoes, name="configuracoes"),
+    path("dispositivos/", views.dispositivos, name="dispositivos"),
+    path("notificacoes/", views.notificacoes, name="notificacoes"),
+    path("acessibilidade/", views.acessibilidade, name="acessibilidade"),
     path("sobre/", views.sobre, name="sobre"),
 ]

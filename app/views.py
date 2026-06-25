@@ -470,3 +470,28 @@ def duvidas(request):
 
 def sobre(request):
     return render(request,"sobre.html")
+
+
+def configuracoes(request):
+    return render(request, "app/config.html")
+
+
+def dispositivos(request):
+    return render(request, "app/dispositivos.html")
+
+
+def notificacoes(request):
+    return render(request, "app/notificacoes.html")
+
+
+def acessibilidade(request):
+    return render(request, "app/acessibilidade.html")
+
+
+# ---------------------------------------------------------------------------
+# Roteiro de Estudo 
+# ---------------------------------------------------------------------------
+
+
+def roteiro(request):
+    return render(request, "app/roteiro.html")
