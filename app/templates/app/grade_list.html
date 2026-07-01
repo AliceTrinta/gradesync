@@ -1,29 +1,81 @@
 {% extends 'app/base.html' %}
 
-{% block title %}GradeSync | Grades{% endblock %}
+{% block title %}GradeSync | Minhas Grades{% endblock %}
 
 {% block content %}
 <section class="page-header">
-    <h1>Minhas Grades</h1>
-    <a href="{% url 'app:grade-create' %}" class="primary">Nova Grade</a>
+    <a class="back-link" href="{% url 'app:home' %}" aria-label="Voltar para o início">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Minhas Grades</h1>
+        <p>
+            Sua grade organiza as disciplinas de cada semestre. Depois disso,
+            o roteiro de estudos é gerado com base nela.
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'app:grade-criar' %}" class="primary">
+            <i class="fa-solid fa-plus"></i>
+            Nova grade
+        </a>
+    </div>
 </section>
 
 {% if grades %}
-<div class="list-cards">
+<div class="entity-list">
     {% for grade in grades %}
-    <div class="list-card">
-        <div class="list-card-info">
-            <strong>{{ grade.periodo }}</strong>
-            <span class="text-soft">{{ grade.turma_set.count }} turma(s)</span>
+    <article class="entity-card">
+        <div class="entity-card-head">
+            <div class="entity-card-title">
+                <span class="entity-card-badge"><i class="fa-regular fa-calendar"></i></span>
+                <div>
+                    <h2>Semestre {{ grade.periodo }}</h2>
+                    <p class="text-soft">
+                        {{ grade.turmas.count }} disciplina{{ grade.turmas.count|pluralize }}
+                        · atualizada em {{ grade.atualizado_em|date:"d/m/Y"|default:"—" }}
+                    </p>
+                </div>
+            </div>
+            <div class="entity-card-actions">
+                <a href="{% url 'app:grade-detalhe' grade.id %}" class="primary">
+                    <i class="fa-solid fa-eye"></i>
+                    Ver detalhes
+                </a>
+                <a href="{% url 'app:grade-excluir' grade.id %}" class="secondary danger">
+                    <i class="fa-solid fa-trash"></i>
+                    Excluir
+                </a>
+            </div>
         </div>
-        <div class="list-card-actions">
-            <a href="{% url 'app:grade-edit' grade.id %}">Editar</a>
-            <a href="{% url 'app:grade-delete' grade.id %}" class="danger">Excluir</a>
-        </div>
-    </div>
+
+        {% if grade.turmas.all %}
+        <ul class="entity-card-tags">
+            {% for turma in grade.turmas.all %}
+            <li class="tag-chip">
+                <strong>{{ turma.disciplina.codigo }}</strong>
+                <span>{{ turma.disciplina.nome }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </article>
     {% endfor %}
 </div>
 {% else %}
-<p class="empty-state">Nenhuma grade cadastrada ainda.</p>
+<div class="empty-panel">
+    <div class="empty-panel-icon">
+        <i class="fa-regular fa-calendar"></i>
+    </div>
+    <h2>Você ainda não tem uma grade</h2>
+    <p>
+        Comece criando a grade do semestre. Ela é a base para o roteiro
+        de estudos e para o acompanhamento das suas disciplinas.
+    </p>
+    <a href="{% url 'app:grade-criar' %}" class="primary">
+        <i class="fa-solid fa-plus"></i>
+        Criar minha primeira grade
+    </a>
+</div>
 {% endif %}
 {% endblock %}

@@ -1,47 +1,236 @@
 {% extends 'app/base.html' %}
 
-{% block title %}GradeSync | Base visual{% endblock %}
+{% block title %}GradeSync | Início{% endblock %}
 
 {% block content %}
-<section class="base-preview">
-    <div class="base-preview-card">
-        <p class="eyebrow">Base visual</p>
-        <h1 class="base-preview-title">Bem vindo</h1>
-        <h2 class="base-preview-subtitle">Em construção...</h2>
 
-        <div class="base-preview-meta">
-            <span class="version-pill">{{ version }}</span>
-            <code data-api-endpoint="{{ api_status_url }}">GET {{ api_status_url }}</code>
+{% if user.is_authenticated %}
+
+    <section class="hero-welcome">
+        <div>
+            <p class="eyebrow">Bem-vindo{% if user.first_name %},{% endif %}</p>
+            <h1 class="hero-title">
+                {{ user.first_name|default:user.username }}
+                {% if aluno %}<span class="hero-badge">Matrícula {{ aluno.matricula }}</span>{% endif %}
+            </h1>
+            <p class="hero-subtitle">Escolha uma área para continuar</p>
+        </div>
+        <div class="hero-meta">
+            <span class="version-pill">v{{ version }}</span>
+            {% if notificacoes_nao_lidas and notificacoes_nao_lidas > 0 %}
+            <a href="{% url 'app:notificacoes' %}" class="hero-notif-pill">
+                <i class="fa-regular fa-bell"></i>
+                {{ notificacoes_nao_lidas }} nova{{ notificacoes_nao_lidas|pluralize }}
+            </a>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="dashboard-grid">
+        <a class="dashboard-card dashboard-card--primary" href="{% url 'app:grade-list' %}">
+            <span class="dashboard-icon"><i class="fa-regular fa-calendar"></i></span>
+            <div>
+                <h3>Grade do Semestre</h3>
+                <p>Monte sua grade com as disciplinas que vai cursar</p>
+            </div>
+            <span class="dashboard-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+
+        <a class="dashboard-card" href="{% url 'app:roteiro' %}">
+            <span class="dashboard-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <div>
+                <h3>Roteiro de Estudo</h3>
+                <p>Sua rotina semanal personalizada com base na sua grade</p>
+            </div>
+            <span class="dashboard-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+
+        <a class="dashboard-card" href="{% url 'app:notificacoes' %}">
+            <span class="dashboard-icon"><i class="fa-regular fa-bell"></i></span>
+            <div>
+                <h3>Notificações</h3>
+                <p>
+                    {% if notificacoes_nao_lidas and notificacoes_nao_lidas > 0 %}
+                    {{ notificacoes_nao_lidas }} não lida{{ notificacoes_nao_lidas|pluralize }} · fique em dia
+                    {% else %}
+                    Tudo em dia — sem novas notificações
+                    {% endif %}
+                </p>
+            </div>
+            <span class="dashboard-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+
+        <a class="dashboard-card" href="{% url 'app:duvidas' %}">
+            <span class="dashboard-icon"><i class="fa-regular fa-circle-question"></i></span>
+            <div>
+                <h3>Central de Ajuda</h3>
+                <p>Chat de dúvidas frequentes sobre o GradeSync</p>
+            </div>
+            <span class="dashboard-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+
+        <a class="dashboard-card" href="{% url 'app:configuracoes' %}">
+            <span class="dashboard-icon"><i class="fa-solid fa-gear"></i></span>
+            <div>
+                <h3>Configurações</h3>
+                <p>Idioma, tema, acessibilidade e dispositivos</p>
+            </div>
+            <span class="dashboard-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+
+        <a class="dashboard-card" href="{% url 'app:sobre' %}">
+            <span class="dashboard-icon"><i class="fa-solid fa-circle-info"></i></span>
+            <div>
+                <h3>Sobre</h3>
+                <p>Informações do projeto e equipe</p>
+            </div>
+            <span class="dashboard-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+
+        {% if user.is_staff %}
+        <a class="dashboard-card dashboard-card--admin" href="{{ admin_url }}">
+            <span class="dashboard-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+            <div>
+                <h3>Área Administrativa</h3>
+                <p>Gestão de dados via Django Admin</p>
+            </div>
+            <span class="dashboard-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+        {% endif %}
+    </section>
+
+    <section class="dashboard-footer">
+        <code data-api-endpoint="{{ api_status_url }}">GET {{ api_status_url }}</code>
+    </section>
+
+{% else %}
+
+    <section class="landing-hero">
+        <div class="landing-hero-content">
+            <p class="eyebrow">GradeSync · v{{ version }}</p>
+            <h1 class="landing-hero-title">
+                Seu assistente acadêmico<br>
+                <span class="landing-hero-gradient">para o semestre inteiro.</span>
+            </h1>
+            <p class="landing-hero-tagline">
+                Organize sua grade, monte roteiros de estudo com sugestões
+                automáticas e acompanhe seu desempenho — tudo em um só lugar.
+            </p>
+
+            <div class="hero-actions">
+                <a class="primary" href="{% url 'app:login' %}">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    Entrar
+                </a>
+                <a class="secondary" href="{% url 'app:cadastro' %}">
+                    <i class="fa-solid fa-user-plus"></i>
+                    Criar conta
+                </a>
+            </div>
+
+            <div class="landing-hero-meta">
+                <span><i class="fa-solid fa-shield-halved"></i> Login seguro</span>
+                <span><i class="fa-solid fa-bolt"></i> Sem instalação</span>
+                <span><i class="fa-solid fa-universal-access"></i> Acessível</span>
+            </div>
         </div>
 
-        <div class="hero-actions">
-            <a class="primary" href="{{ admin_url }}">
-                <i class="fa-solid fa-screwdriver-wrench"></i>
-                Abrir admin
+        <div class="landing-hero-visual" aria-hidden="true">
+            <div class="landing-mock">
+                <div class="landing-mock-header">
+                    <span class="landing-mock-dot"></span>
+                    <span class="landing-mock-dot"></span>
+                    <span class="landing-mock-dot"></span>
+                    <span class="landing-mock-title">Roteiro semanal</span>
+                </div>
+                <div class="landing-mock-grid">
+                    <div class="landing-mock-slot blue">Cálculo I</div>
+                    <div class="landing-mock-slot green">Estudo dirigido</div>
+                    <div class="landing-mock-slot purple">Algoritmos</div>
+                    <div class="landing-mock-slot amber">Física</div>
+                    <div class="landing-mock-slot blue">Cálculo I</div>
+                    <div class="landing-mock-slot green">Revisão</div>
+                </div>
+                <div class="landing-mock-footer">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span>8 blocos · 6 dias · IA</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="landing-features-grid">
+        <div class="landing-feature-card">
+            <div class="landing-feature-icon primary-bg">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <h3>Roteiros inteligentes</h3>
+            <p>Sua grade semanal montada com sugestões automáticas de estudo, revisão e descanso.</p>
+        </div>
+        <div class="landing-feature-card">
+            <div class="landing-feature-icon success-bg">
+                <i class="fa-regular fa-bell"></i>
+            </div>
+            <h3>Notificações que ajudam</h3>
+            <p>Receba avisos sobre aulas, provas e prazos antes que virem problema.</p>
+        </div>
+        <div class="landing-feature-card">
+            <div class="landing-feature-icon amber-bg">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <h3>Desempenho no radar</h3>
+            <p>Acompanhe suas notas por disciplina e veja seu CR do período em tempo real.</p>
+        </div>
+        <div class="landing-feature-card">
+            <div class="landing-feature-icon purple-bg">
+                <i class="fa-solid fa-universal-access"></i>
+            </div>
+            <h3>Feito para todos</h3>
+            <p>Tamanho de fonte, alto contraste, redução de animações e tema escuro.</p>
+        </div>
+    </section>
+
+    <section class="landing-cta">
+        <div class="landing-cta-body">
+            <h2>Pronto para começar?</h2>
+            <p>Crie sua conta em segundos e monte seu primeiro roteiro hoje mesmo.</p>
+        </div>
+        <div class="landing-cta-actions">
+            <a class="primary" href="{% url 'app:cadastro' %}">
+                <i class="fa-solid fa-user-plus"></i>
+                Criar conta grátis
             </a>
-            <a class="secondary" href="{{ api_status_url }}">
-                <i class="fa-solid fa-code"></i>
-                Ver status da API
+            <a class="secondary" href="{% url 'app:duvidas' %}">
+                <i class="fa-regular fa-circle-question"></i>
+                Ver dúvidas
             </a>
         </div>
-    </div>
-</section>
+    </section>
 
+    <section class="landing-footer">
+        <div>
+            <a href="{% url 'app:sobre' %}">Sobre</a>
+            <span aria-hidden="true">·</span>
+            <a href="{% url 'app:duvidas' %}">Dúvidas</a>
+        </div>
+        <code data-api-endpoint="{{ api_status_url }}">GET {{ api_status_url }}</code>
+    </section>
+
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
 <script>
     (function () {
         const endpoint = document.querySelector('[data-api-endpoint]');
-        if (!endpoint) {
-            return;
-        }
-
+        if (!endpoint) return;
         fetch(endpoint.dataset.apiEndpoint)
-            .then((response) => response.json())
+            .then((r) => r.json())
             .then((data) => {
-                endpoint.textContent = `GET ${endpoint.dataset.apiEndpoint} · API ${data.status}`;
+                endpoint.textContent = `GET ${endpoint.dataset.apiEndpoint} · API ${data.status} · v${data.version}`;
             })
-            .catch(() => {
-                endpoint.textContent = 'GET /api/status/';
-            });
+            .catch(() => {});
     })();
 </script>
 {% endblock %}

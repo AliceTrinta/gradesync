@@ -1,212 +1,139 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Configurações</title>
+{% extends 'app/base.html' %}
 
-  <link rel="stylesheet" href="{% static 'app/config.css' %}">
+{% block title %}GradeSync | Configurações{% endblock %}
 
-  <link rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-</head>
-
-<body>
-
-<header class="topbar">
-
-  <div class="logo">
-    <img src="logo.png" alt="Logo">
-    <span>GradeSync</span>
-  </div>
-
-  <a href="#" class="logout">
-    <i class="fa-solid fa-right-from-bracket"></i>
-    Sair
-  </a>
-
-</header>
-
-<main class="container">
-
-  <div class="title-area">
-    <h1>Configurações</h1>
-    <p>Personalize sua experiência</p>
-  </div>
-
-  <div class="card">
-
-    <h3>CONTA</h3>
-
-    <div class="item">
-
-      <div class="left">
-
-        <div class="icon-box">
-          <i class="fa-solid fa-shield"></i>
-        </div>
-
-        <div>
-          <strong>Privacidade</strong>
-          <p>Gerencie seus dados e permissões</p>
-        </div>
-
-      </div>
-
-      <span class="arrow">›</span>
-
+{% block content %}
+<section class="page-header">
+    <a class="back-link" href="{% url 'app:home' %}" aria-label="Voltar para o início">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Configurações</h1>
+        <p>Personalize sua experiência no GradeSync.</p>
     </div>
+</section>
 
-    <div class="item">
+<div class="settings-group">
+    <h3 class="settings-group-title">Conta</h3>
 
-      <div class="left">
+    <a href="{% url 'admin:index' %}" class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="settings-item-body">
+                <strong>Privacidade</strong>
+                <p>Gerencie seus dados e permissões</p>
+            </div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+    </a>
 
-        <div class="icon-box">
-          <i class="fa-regular fa-bell"></i>
+    <a href="{% url 'app:notificacoes' %}" class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-regular fa-bell"></i></div>
+            <div class="settings-item-body">
+                <strong>Notificações</strong>
+                <p>
+                    Alertas e lembretes
+                    {% if notificacoes_nao_lidas and notificacoes_nao_lidas > 0 %}
+                    · <strong class="icon-erro">{{ notificacoes_nao_lidas }} nova{{ notificacoes_nao_lidas|pluralize }}</strong>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+    </a>
+</div>
+
+<div class="settings-group">
+    <h3 class="settings-group-title">Geral</h3>
+
+    <a href="{% url 'app:acessibilidade' %}" class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-universal-access"></i></div>
+            <div class="settings-item-body">
+                <strong>Acessibilidade</strong>
+                <p>Tamanho de texto, contraste e animações</p>
+            </div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+    </a>
+
+    <form method="post" action="{% url 'app:configuracoes' %}">
+        {% csrf_token %}
+
+        <div class="settings-item">
+            <div class="settings-item-left">
+                <div class="settings-item-icon"><i class="fa-solid fa-globe"></i></div>
+                <div class="settings-item-body">
+                    <strong>Idioma</strong>
+                    <p>Linguagem da interface</p>
+                </div>
+            </div>
+            <select name="idioma">
+                {% for value, label in idiomas %}
+                <option value="{{ value }}" {% if prefs_conta.idioma == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
         </div>
 
-        <div>
-          <strong>Notificações</strong>
-          <p>Alertas e lembretes</p>
+        <div class="settings-item">
+            <div class="settings-item-left">
+                <div class="settings-item-icon"><i class="fa-solid fa-palette"></i></div>
+                <div class="settings-item-body">
+                    <strong>Tema</strong>
+                    <p>Aparência do site</p>
+                </div>
+            </div>
+            <select name="tema">
+                {% for value, label in temas %}
+                <option value="{{ value }}" {% if prefs_conta.tema == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
         </div>
 
-      </div>
-
-      <span class="arrow">›</span>
-
-    </div>
-
-    <hr>
-
-    <h3>GERAL</h3>
-
-    <div class="item">
-
-      <div class="left">
-
-        <div class="icon-box">
-          <i class="fa-solid fa-universal-access"></i>
+        <div class="button-row" style="padding: 12px 16px 4px;">
+            <button type="submit" class="primary">
+                <i class="fa-solid fa-check"></i>
+                Salvar preferências
+            </button>
         </div>
+    </form>
 
-        <div>
-          <strong>Acessibilidade</strong>
-          <p>Tamanho de texto e contraste</p>
+    <a href="{% url 'app:dispositivos' %}" class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-mobile-screen"></i></div>
+            <div class="settings-item-body">
+                <strong>Dispositivos</strong>
+                <p>Gerencie sessões ativas</p>
+            </div>
         </div>
+        <span class="settings-item-arrow">›</span>
+    </a>
+</div>
 
-      </div>
+<div class="settings-group">
+    <h3 class="settings-group-title">Sobre</h3>
 
-      <span class="arrow">›</span>
-
-    </div>
-
-    <div class="item">
-
-      <div class="left">
-
-        <div class="icon-box">
-          <i class="fa-solid fa-globe"></i>
+    <a href="{% url 'app:sobre' %}" class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-circle-info"></i></div>
+            <div class="settings-item-body">
+                <strong>Sobre o GradeSync</strong>
+                <p>Versão {{ app_version|default:version|default:"1.0.0" }}</p>
+            </div>
         </div>
+        <span class="settings-item-arrow">›</span>
+    </a>
 
-        <div>
-          <strong>Idioma</strong>
-          <p>Português (Brasil)</p>
+    <a href="{% url 'app:duvidas' %}" class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-regular fa-circle-question"></i></div>
+            <div class="settings-item-body">
+                <strong>Central de Ajuda</strong>
+                <p>Dúvidas frequentes e suporte</p>
+            </div>
         </div>
-
-      </div>
-
-      <span class="arrow">›</span>
-
-    </div>
-
-    <div class="item">
-
-      <div class="left">
-
-        <div class="icon-box">
-          <i class="fa-solid fa-mobile-screen"></i>
-        </div>
-
-        <div>
-          <strong>Dispositivos</strong>
-          <p>Gerencie sessões ativas</p>
-        </div>
-
-      </div>
-
-      <span class="arrow">›</span>
-
-    </div>
-
-    <hr>
-
-    <h3>SOBRE</h3>
-
-    <div class="item">
-
-      <div class="left">
-
-        <div class="icon-box">
-          <i class="fa-solid fa-circle-info"></i>
-        </div>
-
-        <div>
-          <strong>Sobre o GradeSync</strong>
-          <p>Versão 1.0.0</p>
-        </div>
-
-      </div>
-
-      <span class="arrow">›</span>
-
-    </div>
-
-    <div class="item">
-
-      <div class="left">
-
-        <div class="icon-box">
-          <i class="fa-regular fa-file-lines"></i>
-        </div>
-
-        <div>
-          <strong>Termos de Uso</strong>
-          <p>Política de privacidade</p>
-        </div>
-
-      </div>
-
-      <span class="arrow">›</span>
-
-    </div>
-
-  </div>
-
-</main>
-
-<nav class="bottom-nav">
-
-  <a href="#">
-    <i class="fa-regular fa-calendar"></i>
-    Grade
-  </a>
-
-  <a href="#">
-    <i class="fa-regular fa-book-open"></i>
-    Roteiro
-  </a>
-
-  <a href="#">
-    <i class="fa-regular fa-circle-question"></i>
-    Ajuda
-  </a>
-
-  <a href="#" class="active">
-    <i class="fa-solid fa-gear"></i>
-    Config
-  </a>
-
-</nav>
-
-</body>
-</html>
+        <span class="settings-item-arrow">›</span>
+    </a>
+</div>
+{% endblock %}

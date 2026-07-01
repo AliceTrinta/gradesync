@@ -1,122 +1,35 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
+{% extends 'app/base.html' %}
 
-<head>
+{% block title %}GradeSync | Sobre{% endblock %}
 
-    <meta charset="UTF-8">
+{% block content %}
+<section class="page-header">
+    <a class="back-link" href="{% url 'app:home' %}" aria-label="Voltar para o início">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Sobre o GradeSync</h1>
+        <p>Conheça o projeto, a versão e a equipe por trás dele.</p>
+    </div>
+</section>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Sobre o GradeSync</title>
-
-    <link rel="stylesheet" href="{% static 'app/sobre.css' %}">
-
-    <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-</head>
-
-<body>
-
-    <!-- topo -->
-
-    <div class="topo">
-
-        <div class="logo-area">
-
-            <h2>GradeSync</h2>
-
-        </div>
-
-        <div class="sair">
-
-            <i class="fa-solid fa-right-from-bracket"></i>
-
-            <a href="#">Sair</a>
-
-        </div>
-
+<div class="about-card">
+    <div class="about-logo">
+        <i class="fa-solid fa-graduation-cap"></i>
     </div>
 
-    <!-- conteudo -->
+    <h2>GradeSync</h2>
+    <p class="about-tagline">
+        Seu assistente acadêmico inteligente para organizar grades,
+        criar roteiros de estudo personalizados e acompanhar seu
+        desempenho ao longo do semestre.
+    </p>
 
-    <div class="conteudo">
+    <span class="about-version">Versão {{ app_version|default:version|default:"1.0.0" }}</span>
 
-        <!-- titulo -->
-
-        <div class="titulo">
-
-            <i class="fa-solid fa-arrow-left"></i>
-
-            <h1>Sobre o GradeSync</h1>
-
-        </div>
-
-        <!-- card -->
-
-        <div class="card-sobre">
-
-            <h2>GradeSync</h2>
-
-            <p>
-                GradeSync é seu assistente acadêmico inteligente
-                para organizar grades, criar roteiros de estudo
-                personalizados com IA e acompanhar seu desempenho
-                ao longo do semestre.
-            </p>
-
-            <hr>
-
-            <h3>Versão 1.0.0</h3>
-
-            <p>
-                Desenvolvedores: Matheus, Arnaldo,
-                Daniel e Alice.
-            </p>
-
-        </div>
-
+    <div class="about-team">
+        <span class="about-team-label">Desenvolvido por</span>
+        <span class="about-team-names">Matheus · Arnaldo · Daniel · Alice</span>
     </div>
-
-    <!-- aba inferior -->
-
-    <div class="aba-inferior">
-
-        <div class="item-aba">
-
-            <i class="fa-regular fa-calendar"></i>
-
-            <p>Grade</p>
-
-        </div>
-
-        <div class="item-aba">
-
-            <i class="fa-solid fa-book-open"></i>
-
-            <p>Roteiro</p>
-
-        </div>
-
-        <div class="item-aba">
-
-            <i class="fa-regular fa-circle-question"></i>
-
-            <p>Ajuda</p>
-
-        </div>
-
-        <div class="item-aba ativo-menu">
-
-            <i class="fa-solid fa-gear"></i>
-
-            <p>Config</p>
-
-        </div>
-
-    </div>
-
-</body>
-
-</html>
+</div>
+{% endblock %}

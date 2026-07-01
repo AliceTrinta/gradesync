@@ -3,43 +3,82 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from app import __version__
-from app.exceptions import EntidadeNaoEncontrada, SimulacaoIncompletaError
-from app.forms import (
-    AvaliacaoForm,
-    CadastroForm,
-    GradeForm,
-    LoginForm,
-    PerfilForm,
-    SimulacaoForm,
+from app.cursos import CURSOS, CURSOS_DICT, periodo_atual_permitido
+from app.exceptions import (
+    BlocoConflitaComGradeError,
+    BlocoRoteiroInvalidoError,
+    ConflitoDeHorarioError,
+    EntidadeNaoEncontrada,
 )
-from app.models import Disciplina, Grade, Professor, Simulacao
+from app.forms import CadastroForm, LoginForm
+from app.models import (
+    CargaHoraria,
+    PreferenciaAcessibilidade,
+    PreferenciaConta,
+)
 from app.services import (
     AlunoService,
-    AvaliacaoService,
     DisciplinaService,
     GradeService,
-    ProfessorService,
-    SimulacaoService,
+    NotificacaoService,
+    PreferenciaAcessibilidadeService,
+    PreferenciaContaService,
+    RoteiroService,
 )
+from app.services.roteiro_service import CORES
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+DIAS_ORDEM = ["seg", "ter", "qua", "qui", "sex", "sab"]
+HORAS_GRADE = [f"{h:02d}:00" for h in range(8, 18)]
 
 
-def _get_aluno(request):
-    """Retorna o Aluno vinculado ao user logado, ou None."""
-    return getattr(request.user, "aluno", None)
+def _hora_do_valor(valor):
+    if hasattr(valor, "hour"):
+        return valor.hour
+    if not valor:
+        return 0
+    return int(str(valor).split(":", 1)[0])
 
 
-# ---------------------------------------------------------------------------
-# Públicas
-# ---------------------------------------------------------------------------
+def _horas_no_intervalo(inicio, fim):
+    h_inicio = _hora_do_valor(inicio)
+    h_fim = _hora_do_valor(fim)
+    if h_fim <= h_inicio:
+        return [f"{h_inicio:02d}:00"]
+    return [f"{h:02d}:00" for h in range(h_inicio, h_fim)]
+
+
+def _require_aluno(request):
+    aluno = getattr(request.user, "aluno", None)
+    if aluno is None:
+        messages.error(request, "Perfil de aluno nao encontrado.")
+        return None, redirect("app:home")
+    return aluno, None
+
+
+def _obter_grade_do_aluno(aluno, grade_id):
+    try:
+        grade = GradeService().obter_grade(grade_id)
+    except (EntidadeNaoEncontrada, ValueError):
+        return None
+    if grade.aluno_id != aluno.id:
+        return None
+    return grade
+
+
+def _montar_grid_semanal(cells_por_chave):
+    return [
+        {
+            "hora": hora,
+            "cells": [cells_por_chave.get((hora, dia)) for dia in DIAS_ORDEM],
+        }
+        for hora in HORAS_GRADE
+    ]
 
 
 def api_status(request):
@@ -56,11 +95,6 @@ def api_status(request):
     )
 
 
-# ---------------------------------------------------------------------------
-# Auth (B1)
-# ---------------------------------------------------------------------------
-
-
 def login_view(request):
     if request.user.is_authenticated:
         return redirect("app:home")
@@ -74,9 +108,9 @@ def login_view(request):
         )
         if user is not None:
             login(request, user)
-            next_url = request.GET.get("next", reverse("app:home"))
+            next_url = request.GET.get("next") or reverse("app:home")
             return redirect(next_url)
-        messages.error(request, "Usuário ou senha inválidos.")
+        messages.error(request, "Usuario ou senha invalidos.")
 
     return render(request, "app/login.html", {"form": form})
 
@@ -84,11 +118,6 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect("app:login")
-
-
-# ---------------------------------------------------------------------------
-# Cadastro (B2)
-# ---------------------------------------------------------------------------
 
 
 def cadastro(request):
@@ -110,7 +139,7 @@ def cadastro(request):
         except ValidationError as e:
             for field, errs in e.message_dict.items():
                 for err in errs:
-                    messages.error(request, err)
+                    messages.error(request, f"{field}: {err}")
             return render(request, "app/cadastro.html", {"form": form})
 
         user = authenticate(
@@ -126,12 +155,6 @@ def cadastro(request):
     return render(request, "app/cadastro.html", {"form": form})
 
 
-# ---------------------------------------------------------------------------
-# Home
-# ---------------------------------------------------------------------------
-
-
-@login_required
 def home(request):
     context = {
         "app_name": "GradeSync",
@@ -142,356 +165,447 @@ def home(request):
     return render(request, "app/home.html", context)
 
 
-# ---------------------------------------------------------------------------
-# Grades (B3)
-# ---------------------------------------------------------------------------
+def duvidas(request):
+    return render(request, "app/duvidas.html")
+
+
+def sobre(request):
+    return render(request, "app/sobre.html")
+
+
+@login_required
+def dispositivos(request):
+    return render(request, "app/dispositivos.html")
+
+
+def _grid_do_roteiro(roteiro):
+    if not roteiro or not roteiro.slots:
+        return []
+    por_celula = {}
+    for slot in roteiro.slots:
+        dia = slot.get("dia", "")
+        horas = _horas_no_intervalo(
+            slot.get("hora_inicio", ""),
+            slot.get("hora_final", ""),
+        )
+        for idx, hora in enumerate(horas):
+            por_celula[(hora, dia)] = {
+                **slot,
+                "is_head": idx == 0,
+                "is_tail": idx == len(horas) - 1,
+            }
+    return _montar_grid_semanal(por_celula)
+
+
+@login_required
+def roteiro(request):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    roteiro_obj = RoteiroService().obter_do_aluno(aluno)
+    grades = list(GradeService().listar_do_aluno(aluno))
+    context = {
+        "roteiro": roteiro_obj,
+        "slots_grid": _grid_do_roteiro(roteiro_obj),
+        "grades": grades,
+        "tem_grade": bool(grades),
+    }
+    return render(request, "app/roteiro.html", context)
+
+
+@login_required
+@require_POST
+def roteiro_criar(request):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    grades = list(GradeService().listar_do_aluno(aluno))
+    if not grades:
+        messages.error(
+            request,
+            "Voce precisa criar uma grade do semestre antes de gerar o roteiro.",
+        )
+        return redirect("app:grade-list")
+
+    grade_id = request.POST.get("grade_id")
+    grade = _obter_grade_do_aluno(aluno, grade_id) if grade_id else None
+    if grade is None:
+        grade = grades[0]
+
+    RoteiroService().gerar_roteiro_padrao(aluno=aluno, grade=grade)
+    messages.success(request, f"Roteiro gerado com base na grade {grade.periodo}!")
+    return redirect("app:roteiro")
+
+
+@login_required
+@require_POST
+def roteiro_excluir(request):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    if RoteiroService().excluir_do_aluno(aluno):
+        messages.info(request, "Roteiro removido.")
+    return redirect("app:roteiro")
+
+
+def _extrair_bloco_do_post(request):
+    return {
+        "dia": (request.POST.get("dia") or "").strip(),
+        "hora_inicio": (request.POST.get("hora_inicio") or "").strip(),
+        "hora_final": (request.POST.get("hora_final") or "").strip(),
+        "titulo": (request.POST.get("titulo") or "").strip(),
+        "cor": (request.POST.get("cor") or "blue").strip(),
+    }
+
+
+@login_required
+@require_POST
+def roteiro_bloco_adicionar(request):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    try:
+        RoteiroService().adicionar_bloco(aluno, **_extrair_bloco_do_post(request))
+        messages.success(request, "Bloco adicionado ao roteiro.")
+    except (BlocoConflitaComGradeError, BlocoRoteiroInvalidoError) as exc:
+        messages.error(request, str(exc))
+    return redirect("app:roteiro")
+
+
+@login_required
+@require_POST
+def roteiro_bloco_editar(request, bloco_id):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    try:
+        RoteiroService().editar_bloco(
+            aluno, bloco_id=bloco_id, **_extrair_bloco_do_post(request)
+        )
+        messages.success(request, "Bloco atualizado.")
+    except (BlocoConflitaComGradeError, BlocoRoteiroInvalidoError) as exc:
+        messages.error(request, str(exc))
+    return redirect("app:roteiro")
+
+
+@login_required
+@require_POST
+def roteiro_bloco_remover(request, bloco_id):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    try:
+        RoteiroService().remover_bloco(aluno, bloco_id=bloco_id)
+        messages.info(request, "Bloco removido.")
+    except BlocoRoteiroInvalidoError as exc:
+        messages.error(request, str(exc))
+    return redirect("app:roteiro")
+
+
+def _listar_cargas_ordenadas():
+    ordem_dias = {"seg": 0, "ter": 1, "qua": 2, "qui": 3, "sex": 4, "sab": 5}
+    todas = list(CargaHoraria.objects.all())
+    todas.sort(
+        key=lambda c: (
+            ordem_dias.get((c.dia or "").strip().lower()[:3], 99),
+            c.hora_inicio,
+        )
+    )
+    return [
+        (
+            str(carga.id),
+            f"{carga.dia.capitalize()} · "
+            f"{carga.hora_inicio.strftime('%H:%M')} - "
+            f"{carga.hora_final.strftime('%H:%M')}",
+        )
+        for carga in todas
+    ]
+
+
+def _extrair_selecoes(request, disciplinas):
+    selecoes = []
+    for disciplina in disciplinas:
+        if request.POST.get(f"disciplina_{disciplina.id}") != "on":
+            continue
+        cargas_ids = request.POST.getlist(f"cargas_{disciplina.id}")
+        if not cargas_ids:
+            return None, disciplina.codigo
+        selecoes.append(
+            {
+                "disciplina_id": str(disciplina.id),
+                "carga_horaria_ids": cargas_ids,
+            }
+        )
+    return selecoes, None
+
+
+def _grid_da_grade(grade):
+    if not grade:
+        return []
+    cor_por_disciplina = {}
+    por_celula = {}
+    for turma in grade.turmas.all():
+        disc_id = turma.disciplina_id
+        if disc_id not in cor_por_disciplina:
+            cor_por_disciplina[disc_id] = CORES[
+                len(cor_por_disciplina) % len(CORES)
+            ]
+        cor = cor_por_disciplina[disc_id]
+        for carga in turma.carga_horarias.all():
+            dia_slug = (carga.dia or "").strip().lower()[:3]
+            hora_inicio_str = carga.hora_inicio.strftime("%H:%M")
+            hora_final_str = carga.hora_final.strftime("%H:%M")
+            horas = _horas_no_intervalo(carga.hora_inicio, carga.hora_final)
+            for idx, hora in enumerate(horas):
+                por_celula[(hora, dia_slug)] = {
+                    "codigo": turma.disciplina.codigo,
+                    "nome": turma.disciplina.nome,
+                    "cor": cor,
+                    "hora_inicio": hora_inicio_str,
+                    "hora_final": hora_final_str,
+                    "is_head": idx == 0,
+                    "is_tail": idx == len(horas) - 1,
+                }
+    return _montar_grid_semanal(por_celula)
 
 
 @login_required
 def grade_list(request):
-    aluno = _get_aluno(request)
-    if not aluno:
-        messages.error(request, "Perfil de aluno não encontrado.")
-        return redirect("app:home")
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
 
-    grades = Grade.objects.filter(aluno=aluno).order_by("-periodo")
+    grades = list(GradeService().listar_do_aluno(aluno))
     return render(request, "app/grade_list.html", {"grades": grades})
 
 
 @login_required
-def grade_create(request):
-    aluno = _get_aluno(request)
-    if not aluno:
-        return redirect("app:home")
+def grade_criar(request):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
 
-    form = GradeForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        service = GradeService()
-        service.criar_grade(periodo=form.cleaned_data["periodo"], aluno=aluno)
-        messages.success(request, "Grade criada com sucesso!")
-        return redirect("app:grade-list")
-
-    return render(request, "app/grade_form.html", {"form": form, "editing": False})
-
-
-@login_required
-def grade_edit(request, grade_id):
-    aluno = _get_aluno(request)
-    grade = get_object_or_404(Grade, id=grade_id, aluno=aluno)
-
-    form = GradeForm(request.POST or None, initial={"periodo": grade.periodo})
-    if request.method == "POST" and form.is_valid():
-        service = GradeService()
-        service.atualizar_grade(grade.id, periodo=form.cleaned_data["periodo"])
-        messages.success(request, "Grade atualizada!")
-        return redirect("app:grade-list")
-
-    return render(
-        request, "app/grade_form.html", {"form": form, "editing": True, "grade": grade}
-    )
-
-
-@login_required
-def grade_delete(request, grade_id):
-    aluno = _get_aluno(request)
-    grade = get_object_or_404(Grade, id=grade_id, aluno=aluno)
+    curso = (request.GET.get("curso") or request.POST.get("curso") or "").upper()
+    disciplinas = []
+    disciplinas_com_cargas = []
+    if curso in CURSOS_DICT:
+        disciplinas = list(
+            DisciplinaService().listar_por_curso(curso).order_by("codigo")
+        )
+        cargas = _listar_cargas_ordenadas()
+        disciplinas_com_cargas = [
+            {"disciplina": d, "cargas": cargas} for d in disciplinas
+        ]
 
     if request.method == "POST":
-        service = GradeService()
-        service.excluir_grade(grade.id)
-        messages.success(request, "Grade excluída!")
+        redir = _processar_criacao_grade(request, aluno, curso, disciplinas)
+        if redir is not None:
+            return redir
+
+    context = {
+        "cursos": CURSOS,
+        "curso_selecionado": curso if curso in CURSOS_DICT else "",
+        "nome_curso_selecionado": CURSOS_DICT.get(curso, ""),
+        "disciplinas_com_cargas": disciplinas_com_cargas,
+        "periodo_atual": periodo_atual_permitido(),
+    }
+    return render(request, "app/grade_form.html", context)
+
+
+def _processar_criacao_grade(request, aluno, curso, disciplinas):
+    periodo = periodo_atual_permitido()
+    if curso not in CURSOS_DICT:
+        messages.error(request, "Selecione um curso valido.")
+        return None
+
+    if GradeService().listar_do_aluno(aluno).filter(periodo=periodo).exists():
+        messages.error(request, f"Voce ja tem uma grade para o periodo {periodo}.")
+        return None
+
+    selecoes, codigo_sem_horario = _extrair_selecoes(request, disciplinas)
+    if codigo_sem_horario:
+        messages.error(
+            request,
+            f"Selecione ao menos um horario para {codigo_sem_horario}.",
+        )
+        return None
+    if not selecoes:
+        messages.error(
+            request, "Selecione ao menos uma disciplina para montar a grade."
+        )
+        return None
+
+    try:
+        grade = GradeService().criar_grade_do_aluno(
+            aluno=aluno, periodo=periodo, selecoes=selecoes
+        )
+    except ConflitoDeHorarioError as e:
+        messages.error(request, str(e))
+        return None
+    except ValidationError as e:
+        for field, errs in e.message_dict.items():
+            for err in errs:
+                messages.error(request, f"{field}: {err}")
+        return None
+
+    messages.success(request, f"Grade {grade.periodo} criada com sucesso!")
+    return redirect("app:grade-detalhe", grade_id=grade.id)
+
+
+@login_required
+def grade_detalhe(request, grade_id):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    grade = _obter_grade_do_aluno(aluno, grade_id)
+    if grade is None:
+        messages.error(request, "Grade nao encontrada.")
+        return redirect("app:grade-list")
+
+    context = {
+        "grade": grade,
+        "turmas": list(grade.turmas.select_related("disciplina").all()),
+        "slots_grid": _grid_da_grade(grade),
+    }
+    return render(request, "app/grade_detalhe.html", context)
+
+
+@login_required
+def grade_excluir(request, grade_id):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    grade = _obter_grade_do_aluno(aluno, grade_id)
+    if grade is None:
+        messages.error(request, "Grade nao encontrada.")
+        return redirect("app:grade-list")
+
+    if request.method == "POST":
+        GradeService().excluir_grade(grade.id)
+        messages.info(request, "Grade removida.")
         return redirect("app:grade-list")
 
     return render(request, "app/grade_confirm_delete.html", {"grade": grade})
 
 
-# ---------------------------------------------------------------------------
-# Simulações (B4)
-# ---------------------------------------------------------------------------
-
-
 @login_required
-def simulacao_list(request):
-    aluno = _get_aluno(request)
-    if not aluno:
-        return redirect("app:home")
-
-    simulacoes = Simulacao.objects.filter(aluno=aluno).order_by("-periodo")
-    return render(request, "app/simulacao_list.html", {"simulacoes": simulacoes})
-
-
-@login_required
-def simulacao_create(request):
-    aluno = _get_aluno(request)
-    if not aluno:
-        return redirect("app:home")
-
-    form = SimulacaoForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        service = SimulacaoService()
-        service.criar_simulacao(periodo=form.cleaned_data["periodo"], aluno=aluno)
-        messages.success(request, "Simulação criada!")
-        return redirect("app:simulacao-list")
-
-    return render(
-        request, "app/simulacao_form.html", {"form": form, "editing": False}
-    )
-
-
-@login_required
-def simulacao_edit(request, simulacao_id):
-    aluno = _get_aluno(request)
-    simulacao = get_object_or_404(Simulacao, id=simulacao_id, aluno=aluno)
-
-    form = SimulacaoForm(
-        request.POST or None, initial={"periodo": simulacao.periodo}
-    )
-    if request.method == "POST" and form.is_valid():
-        service = SimulacaoService()
-        service.atualizar_simulacao(
-            simulacao.id, periodo=form.cleaned_data["periodo"]
-        )
-        messages.success(request, "Simulação atualizada!")
-        return redirect("app:simulacao-list")
-
-    return render(
-        request,
-        "app/simulacao_form.html",
-        {"form": form, "editing": True, "simulacao": simulacao},
-    )
-
-
-@login_required
-def simulacao_delete(request, simulacao_id):
-    aluno = _get_aluno(request)
-    simulacao = get_object_or_404(Simulacao, id=simulacao_id, aluno=aluno)
-
-    if request.method == "POST":
-        service = SimulacaoService()
-        service.excluir_simulacao(simulacao.id)
-        messages.success(request, "Simulação excluída!")
-        return redirect("app:simulacao-list")
-
-    return render(
-        request, "app/simulacao_confirm_delete.html", {"simulacao": simulacao}
-    )
-
-
-@login_required
-def simulacao_confirmar(request, simulacao_id):
-    aluno = _get_aluno(request)
-    simulacao = get_object_or_404(Simulacao, id=simulacao_id, aluno=aluno)
-
-    if request.method == "POST":
-        service = SimulacaoService()
-        try:
-            service.confirmar_simulacao(simulacao.id)
-            messages.success(request, "Simulação confirmada! Nova grade criada.")
-        except SimulacaoIncompletaError as e:
-            for campo, msg in e.erros.items():
-                messages.error(request, f"{campo}: {msg}")
-            return redirect("app:simulacao-list")
-        return redirect("app:grade-list")
-
-    return render(
-        request, "app/simulacao_confirm.html", {"simulacao": simulacao}
-    )
-
-
-# ---------------------------------------------------------------------------
-# Avaliações (B5)
-# ---------------------------------------------------------------------------
-
-
-@login_required
-def avaliacao_list(request):
-    aluno = _get_aluno(request)
-    if not aluno:
-        return redirect("app:home")
-
-    avaliacoes = aluno.avaliacoes.select_related("professor", "disciplina").order_by(
-        "-ano", "-semestre"
-    )
-    return render(request, "app/avaliacao_list.html", {"avaliacoes": avaliacoes})
-
-
-@login_required
-def avaliacao_create(request):
-    aluno = _get_aluno(request)
-    if not aluno:
-        return redirect("app:home")
-
-    form = AvaliacaoForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        service = AvaliacaoService()
-        service.criar_avaliacao(
-            ano=form.cleaned_data["ano"],
-            semestre=form.cleaned_data["semestre"],
-            nota=form.cleaned_data["nota"],
-            aluno=aluno,
-            professor=form.cleaned_data["professor"],
-            disciplina=form.cleaned_data["disciplina"],
-        )
-        messages.success(request, "Avaliação registrada!")
-        return redirect("app:avaliacao-list")
-
-    return render(
-        request, "app/avaliacao_form.html", {"form": form, "editing": False}
-    )
-
-
-@login_required
-def avaliacao_edit(request, avaliacao_id):
-    aluno = _get_aluno(request)
-    avaliacao = get_object_or_404(aluno.avaliacoes, id=avaliacao_id)
-
-    form = AvaliacaoForm(
-        request.POST or None,
-        initial={
-            "ano": avaliacao.ano,
-            "semestre": avaliacao.semestre,
-            "nota": avaliacao.nota,
-            "professor": avaliacao.professor_id,
-            "disciplina": avaliacao.disciplina_id,
-        },
-    )
-    if request.method == "POST" and form.is_valid():
-        service = AvaliacaoService()
-        service.atualizar_avaliacao(
-            avaliacao.id,
-            ano=form.cleaned_data["ano"],
-            semestre=form.cleaned_data["semestre"],
-            nota=form.cleaned_data["nota"],
-            professor=form.cleaned_data["professor"],
-            disciplina=form.cleaned_data["disciplina"],
-        )
-        messages.success(request, "Avaliação atualizada!")
-        return redirect("app:avaliacao-list")
-
-    return render(
-        request,
-        "app/avaliacao_form.html",
-        {"form": form, "editing": True, "avaliacao": avaliacao},
-    )
-
-
-@login_required
-def avaliacao_delete(request, avaliacao_id):
-    aluno = _get_aluno(request)
-    avaliacao = get_object_or_404(aluno.avaliacoes, id=avaliacao_id)
-
-    if request.method == "POST":
-        service = AvaliacaoService()
-        service.excluir_avaliacao(avaliacao.id)
-        messages.success(request, "Avaliação excluída!")
-        return redirect("app:avaliacao-list")
-
-    return render(
-        request, "app/avaliacao_confirm_delete.html", {"avaliacao": avaliacao}
-    )
-
-
-# ---------------------------------------------------------------------------
-# Disciplinas e Professores (B6)
-# ---------------------------------------------------------------------------
-
-
-@login_required
-def disciplina_list(request):
-    service = DisciplinaService()
-    disciplinas = service.listar_disciplinas()
-    return render(request, "app/disciplina_list.html", {"disciplinas": disciplinas})
-
-
-@login_required
-def professor_list(request):
-    service = ProfessorService()
-    professores = service.listar_professores()
-    return render(request, "app/professor_list.html", {"professores": professores})
-
-
-# ---------------------------------------------------------------------------
-# Perfil / Configurações (B7)
-# ---------------------------------------------------------------------------
-
-
-@login_required
-def perfil(request):
-    aluno = _get_aluno(request)
-    if not aluno:
-        messages.error(request, "Perfil de aluno não encontrado.")
-        return redirect("app:home")
-
-    user = request.user
-    form = PerfilForm(
-        request.POST or None,
-        initial={
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-        },
-    )
-
-    if request.method == "POST" and form.is_valid():
-        service = AlunoService()
-        service.atualizar_aluno(
-            aluno.id,
-            usuario_campos={
-                "first_name": form.cleaned_data["first_name"],
-                "last_name": form.cleaned_data["last_name"],
-                "email": form.cleaned_data["email"],
-            },
-        )
-        messages.success(request, "Perfil atualizado!")
-        return redirect("app:perfil")
-
-    return render(request, "app/perfil.html", {"form": form, "aluno": aluno})
-
-
-@login_required
-def desativar_conta(request):
-    aluno = _get_aluno(request)
-    if not aluno:
-        return redirect("app:home")
-
-    if request.method == "POST":
-        service = AlunoService()
-        service.desativar_aluno(aluno.id)
-        logout(request)
-        messages.info(request, "Sua conta foi desativada.")
-        return redirect("app:login")
-
-    return render(request, "app/desativar_conta.html", {"aluno": aluno})
-
-
-def duvidas(request):
-    return render(request,"duvidas.html")
-
-
-def sobre(request):
-    return render(request,"sobre.html")
-
-
-def configuracoes(request):
-    return render(request, "app/config.html")
-
-
-def dispositivos(request):
-    return render(request, "app/dispositivos.html")
-
-
 def notificacoes(request):
-    return render(request, "app/notificacoes.html")
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    service = NotificacaoService()
+    context = {
+        "notificacoes": list(service.listar_do_aluno(aluno)),
+        "nao_lidas": service.contar_nao_lidas(aluno),
+    }
+    return render(request, "app/notificacoes.html", context)
 
 
+@login_required
+@require_POST
+def notificacao_marcar_lida(request, notif_id):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    try:
+        NotificacaoService().marcar_como_lida(notif_id, aluno)
+    except EntidadeNaoEncontrada:
+        messages.error(request, "Notificacao nao encontrada.")
+    return redirect("app:notificacoes")
+
+
+@login_required
+@require_POST
+def notificacao_marcar_todas(request):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    total = NotificacaoService().marcar_todas_como_lidas(aluno)
+    if total:
+        messages.success(request, f"{total} notificacao(oes) marcada(s) como lida(s).")
+    return redirect("app:notificacoes")
+
+
+@login_required
 def acessibilidade(request):
-    return render(request, "app/acessibilidade.html")
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    service = PreferenciaAcessibilidadeService()
+    prefs = service.obter_do_aluno(aluno)
+
+    if request.method == "POST":
+        tamanho_fonte = request.POST.get("tamanho_fonte", prefs.tamanho_fonte)
+        validos = {v for v, _ in PreferenciaAcessibilidade.TAMANHOS_FONTE}
+        if tamanho_fonte not in validos:
+            tamanho_fonte = prefs.tamanho_fonte
+
+        try:
+            service.atualizar(
+                aluno,
+                tamanho_fonte=tamanho_fonte,
+                alto_contraste="alto_contraste" in request.POST,
+                reduzir_animacoes="reduzir_animacoes" in request.POST,
+                sublinhar_links="sublinhar_links" in request.POST,
+            )
+            messages.success(request, "Preferencias de acessibilidade salvas!")
+        except ValidationError as e:
+            for field, errs in e.message_dict.items():
+                for err in errs:
+                    messages.error(request, f"{field}: {err}")
+        return redirect("app:acessibilidade")
+
+    context = {
+        "prefs_acessibilidade": prefs,
+        "tamanhos_fonte": PreferenciaAcessibilidade.TAMANHOS_FONTE,
+    }
+    return render(request, "app/acessibilidade.html", context)
 
 
-# ---------------------------------------------------------------------------
-# Roteiro de Estudo 
-# ---------------------------------------------------------------------------
+@login_required
+def configuracoes(request):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
 
+    service = PreferenciaContaService()
+    prefs = service.obter_do_aluno(aluno)
 
-def roteiro(request):
-    return render(request, "app/roteiro.html")
+    if request.method == "POST":
+        idioma = request.POST.get("idioma", prefs.idioma)
+        tema = request.POST.get("tema", prefs.tema)
+
+        idiomas_validos = {v for v, _ in PreferenciaConta.IDIOMAS}
+        temas_validos = {v for v, _ in PreferenciaConta.TEMAS}
+        if idioma not in idiomas_validos:
+            idioma = prefs.idioma
+        if tema not in temas_validos:
+            tema = prefs.tema
+
+        try:
+            service.atualizar(aluno, idioma=idioma, tema=tema)
+            messages.success(request, "Preferencias de conta salvas!")
+        except ValidationError as e:
+            for field, errs in e.message_dict.items():
+                for err in errs:
+                    messages.error(request, f"{field}: {err}")
+        return redirect("app:configuracoes")
+
+    context = {
+        "prefs_conta": prefs,
+        "idiomas": PreferenciaConta.IDIOMAS,
+        "temas": PreferenciaConta.TEMAS,
+    }
+    return render(request, "app/config.html", context)

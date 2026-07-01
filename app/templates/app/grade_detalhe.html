@@ -1,0 +1,103 @@
+{% extends 'app/base.html' %}
+
+{% block title %}GradeSync | Grade {{ grade.periodo }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <a class="back-link" href="{% url 'app:grade-list' %}" aria-label="Voltar para grades">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Grade {{ grade.periodo }}</h1>
+        <p>
+            {{ turmas|length }} disciplina{{ turmas|length|pluralize }} ·
+            visualize sua rotina semanal e gere o roteiro de estudos.
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <form
+            method="post"
+            action="{% url 'app:roteiro-criar' %}"
+            style="display:inline"
+        >
+            {% csrf_token %}
+            <input type="hidden" name="grade_id" value="{{ grade.id }}">
+            <button type="submit" class="primary">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                Gerar roteiro
+            </button>
+        </form>
+        <a
+            href="{% url 'app:grade-excluir' grade.id %}"
+            class="secondary danger"
+        >
+            <i class="fa-solid fa-trash"></i>
+            Excluir
+        </a>
+    </div>
+</section>
+
+{% if slots_grid %}
+<div class="schedule">
+    <div class="schedule-header">
+        <div>Hora</div>
+        <div>Seg</div>
+        <div>Ter</div>
+        <div>Qua</div>
+        <div>Qui</div>
+        <div>Sex</div>
+        <div>Sáb</div>
+    </div>
+
+    {% for row in slots_grid %}
+    <div class="schedule-row">
+        <div class="time">{{ row.hora }}</div>
+        {% for cell in row.cells %}
+        <div class="cell{% if cell %} cell--filled{% endif %}">
+            {% if cell %}
+            <div
+                class="slot-pill {{ cell.cor|default:'blue' }}{% if not cell.is_head %} slot-pill--continua{% endif %}{% if not cell.is_tail %} slot-pill--joined-bottom{% endif %}"
+                title="{{ cell.codigo }} · {{ cell.nome }} ({{ cell.hora_inicio }}–{{ cell.hora_final }})"
+            >
+                {% if cell.is_head %}
+                <strong>{{ cell.codigo }}</strong>
+                <small>{{ cell.hora_inicio }}–{{ cell.hora_final }}</small>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<section class="grade-detalhe-turmas">
+    <h2 class="section-heading">Disciplinas desta grade</h2>
+    {% if turmas %}
+    <ul class="turma-list">
+        {% for turma in turmas %}
+        <li class="turma-list-item">
+            <div class="turma-list-info">
+                <strong>{{ turma.disciplina.codigo }}</strong>
+                <span>{{ turma.disciplina.nome }}</span>
+            </div>
+            <ul class="turma-list-cargas">
+                {% for carga in turma.carga_horarias.all %}
+                <li>
+                    <i class="fa-regular fa-clock"></i>
+                    {{ carga.dia|capfirst }} ·
+                    {{ carga.hora_inicio|time:"H:i" }}–{{ carga.hora_final|time:"H:i" }}
+                </li>
+                {% empty %}
+                <li class="text-soft">Sem horário definido.</li>
+                {% endfor %}
+            </ul>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">Esta grade ainda não tem disciplinas.</p>
+    {% endif %}
+</section>
+{% endblock %}

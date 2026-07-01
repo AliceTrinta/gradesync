@@ -1,0 +1,61 @@
+<div class="bloco-form-grid">
+    <label class="bloco-form-field">
+        <span>Título</span>
+        <input
+            type="text"
+            name="titulo"
+            required
+            maxlength="120"
+            placeholder="Ex.: Revisar Cálculo"
+            value="{% if slot %}{{ slot.titulo }}{% endif %}"
+        >
+    </label>
+
+    <label class="bloco-form-field">
+        <span>Dia</span>
+        <select name="dia" required>
+            {% with atual=slot.dia|default:"seg" %}
+            <option value="seg" {% if atual == 'seg' %}selected{% endif %}>Segunda</option>
+            <option value="ter" {% if atual == 'ter' %}selected{% endif %}>Terça</option>
+            <option value="qua" {% if atual == 'qua' %}selected{% endif %}>Quarta</option>
+            <option value="qui" {% if atual == 'qui' %}selected{% endif %}>Quinta</option>
+            <option value="sex" {% if atual == 'sex' %}selected{% endif %}>Sexta</option>
+            <option value="sab" {% if atual == 'sab' %}selected{% endif %}>Sábado</option>
+            <option value="dom" {% if atual == 'dom' %}selected{% endif %}>Domingo</option>
+            {% endwith %}
+        </select>
+    </label>
+
+    <label class="bloco-form-field">
+        <span>Início</span>
+        <input
+            type="time"
+            name="hora_inicio"
+            required
+            value="{% if slot %}{{ slot.hora_inicio }}{% else %}08:00{% endif %}"
+        >
+    </label>
+
+    <label class="bloco-form-field">
+        <span>Fim</span>
+        <input
+            type="time"
+            name="hora_final"
+            required
+            value="{% if slot %}{{ slot.hora_final }}{% else %}10:00{% endif %}"
+        >
+    </label>
+
+    <label class="bloco-form-field">
+        <span>Cor</span>
+        <select name="cor">
+            {% with atual=slot.cor|default:"blue" %}
+            <option value="blue"   {% if atual == 'blue' %}selected{% endif %}>Azul</option>
+            <option value="green"  {% if atual == 'green' %}selected{% endif %}>Verde</option>
+            <option value="purple" {% if atual == 'purple' %}selected{% endif %}>Roxo</option>
+            <option value="amber"  {% if atual == 'amber' %}selected{% endif %}>Âmbar</option>
+            <option value="red"    {% if atual == 'red' %}selected{% endif %}>Vermelho</option>
+            {% endwith %}
+        </select>
+    </label>
+</div>

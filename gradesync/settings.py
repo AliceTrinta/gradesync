@@ -1,12 +1,36 @@
 import sys
 from pathlib import Path
 
+from decouple import Csv, config
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "dev-only-secret-key"
-DEBUG = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+
+def _bool_env(key, default):
+    """Cast tolerante: se o env var vier com valor invalido (ex.: outra app do
+    sistema usando o mesmo nome), silenciosamente cai no default.
+    """
+    raw = config(key, default=default)
+    if isinstance(raw, bool):
+        return raw
+    valores_true = {"1", "true", "yes", "on", "sim"}
+    valores_false = {"0", "false", "no", "off", "nao"}
+    normalizado = str(raw).strip().lower()
+    if normalizado in valores_true:
+        return True
+    if normalizado in valores_false:
+        return False
+    return default
+
+
+SECRET_KEY = config("SECRET_KEY", default="dev-only-secret-key")
+DEBUG = _bool_env("DEBUG", default=True)
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default="localhost,127.0.0.1",
+    cast=Csv(),
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -85,6 +109,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "app:login"

@@ -6,7 +6,11 @@ from app.models import (
     CargaHoraria,
     Disciplina,
     Grade,
+    Notificacao,
+    PreferenciaAcessibilidade,
+    PreferenciaConta,
     Professor,
+    Roteiro,
     Simulacao,
     Turma,
 )
@@ -16,6 +20,7 @@ from app.models import (
 class AlunoAdmin(admin.ModelAdmin):
     list_display = ("matricula", "usuario", "ativo")
     search_fields = ("matricula", "usuario__username", "usuario__first_name")
+    list_filter = ("ativo",)
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -63,10 +68,43 @@ class ProfessorAdmin(admin.ModelAdmin):
 class SimulacaoAdmin(admin.ModelAdmin):
     list_display = ("aluno", "periodo")
     list_filter = ("periodo",)
-    search_fields = ("aluno__matricula", "aluno__usuario__username", "periodo")
+    search_fields = ("aluno__matricula", "periodo")
 
 
 @admin.register(Turma)
 class TurmaAdmin(admin.ModelAdmin):
-    list_display = ("codigo", "disciplina", "grade")
-    search_fields = ("codigo", "disciplina__codigo", "disciplina__nome")
+    list_display = ("codigo", "grade", "disciplina")
+    list_filter = ("grade__periodo", "disciplina")
+    search_fields = ("codigo", "disciplina__codigo")
+
+@admin.register(Roteiro)
+class RoteiroAdmin(admin.ModelAdmin):
+    list_display = ("aluno", "titulo", "atualizado_em")
+    search_fields = ("aluno__matricula", "titulo")
+    readonly_fields = ("criado_em", "atualizado_em")
+
+
+@admin.register(Notificacao)
+class NotificacaoAdmin(admin.ModelAdmin):
+    list_display = ("titulo", "aluno", "tipo", "lida", "criada_em")
+    list_filter = ("tipo", "lida", "criada_em")
+    search_fields = ("titulo", "mensagem", "aluno__matricula")
+    readonly_fields = ("criada_em",)
+    actions = ("marcar_como_lidas",)
+
+    def marcar_como_lidas(self, request, queryset):
+        queryset.update(lida=True)
+
+    marcar_como_lidas.short_description = "Marcar selecionadas como lidas"
+
+
+@admin.register(PreferenciaAcessibilidade)
+class PreferenciaAcessibilidadeAdmin(admin.ModelAdmin):
+    list_display = ("aluno", "tamanho_fonte", "alto_contraste", "reduzir_animacoes")
+    list_filter = ("tamanho_fonte", "alto_contraste")
+
+
+@admin.register(PreferenciaConta)
+class PreferenciaContaAdmin(admin.ModelAdmin):
+    list_display = ("aluno", "idioma", "tema")
+    list_filter = ("idioma", "tema")
