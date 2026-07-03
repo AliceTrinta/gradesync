@@ -1,26 +1,162 @@
 {% extends 'app/base.html' %}
 
-{% block title %}GradeSync | {% if editing %}Editar{% else %}Nova{% endif %} Grade{% endblock %}
+{% block title %}GradeSync | Nova Grade{% endblock %}
 
 {% block content %}
 <section class="page-header">
-    <h1>{% if editing %}Editar Grade{% else %}Nova Grade{% endif %}</h1>
+    <a class="back-link" href="{% url 'app:grade-list' %}" aria-label="Voltar para grades">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Nova grade do semestre</h1>
+        <p>
+            Escolha o curso, selecione as disciplinas que vai cursar e monte
+            sua rotina semanal. Vamos verificar automaticamente se há
+            conflito de horário.
+        </p>
+    </div>
 </section>
 
-<form method="post" class="form-stack">
-    {% csrf_token %}
-    {% for field in form %}
-    <div class="form-field">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.errors %}
-        <span class="field-error">{{ field.errors.0 }}</span>
-        {% endif %}
+<div class="wizard-steps">
+    <div class="wizard-step {% if not curso_selecionado %}is-active{% else %}is-done{% endif %}">
+        <span class="wizard-step-num">1</span>
+        <span>Curso</span>
     </div>
-    {% endfor %}
+    <div class="wizard-step {% if curso_selecionado %}is-active{% endif %}">
+        <span class="wizard-step-num">2</span>
+        <span>Disciplinas e horários</span>
+    </div>
+</div>
+
+{% if not curso_selecionado %}
+
+<form method="get" class="wizard-panel">
+    <h2 class="wizard-panel-title">Qual é o seu curso?</h2>
+    <p class="wizard-panel-help">
+        Selecione o curso para vermos as disciplinas disponíveis.
+    </p>
+
+    <div class="curso-choice-list">
+        {% for codigo, nome in cursos %}
+        <label class="curso-choice">
+            <input type="radio" name="curso" value="{{ codigo }}" required>
+            <div class="curso-choice-body">
+                <span class="curso-choice-badge {{ codigo|lower }}">
+                    {% if codigo == 'ADM' %}
+                    <i class="fa-solid fa-briefcase"></i>
+                    {% else %}
+                    <i class="fa-solid fa-code"></i>
+                    {% endif %}
+                </span>
+                <div>
+                    <strong>{{ nome }}</strong>
+                    <span class="text-soft">Prefixo {{ codigo }}-</span>
+                </div>
+            </div>
+        </label>
+        {% endfor %}
+    </div>
+
     <div class="form-actions">
-        <button type="submit" class="primary">Salvar</button>
+        <button type="submit" class="primary">
+            Continuar
+            <i class="fa-solid fa-arrow-right"></i>
+        </button>
         <a href="{% url 'app:grade-list' %}" class="secondary">Cancelar</a>
     </div>
 </form>
+
+{% else %}
+
+<form method="post" class="wizard-panel">
+    {% csrf_token %}
+    <input type="hidden" name="curso" value="{{ curso_selecionado }}">
+
+    <div class="wizard-panel-head">
+        <div>
+            <h2 class="wizard-panel-title">{{ nome_curso_selecionado }}</h2>
+            <p class="wizard-panel-help">
+                Marque as disciplinas que vai cursar e, em cada uma, escolha
+                os horários da semana.
+            </p>
+        </div>
+        <a href="{% url 'app:grade-criar' %}" class="secondary">
+            <i class="fa-solid fa-rotate-left"></i>
+            Trocar curso
+        </a>
+    </div>
+
+    <div class="periodo-badge">
+        <i class="fa-regular fa-calendar"></i>
+        <div>
+            <span class="periodo-badge-label">Período</span>
+            <strong class="periodo-badge-value">{{ periodo_atual }}</strong>
+        </div>
+        <span class="periodo-badge-help text-soft">
+            O período é fixado pelo semestre atual.
+        </span>
+    </div>
+
+    {% if disciplinas_com_cargas %}
+    <ul class="discipline-picker">
+        {% for item in disciplinas_com_cargas %}
+        <li class="discipline-picker-item">
+            <label class="discipline-picker-check">
+                <input
+                    type="checkbox"
+                    name="disciplina_{{ item.disciplina.id }}"
+                    id="disc_{{ item.disciplina.id }}"
+                >
+                <span class="discipline-picker-label">
+                    <strong>{{ item.disciplina.codigo }}</strong>
+                    <span>{{ item.disciplina.nome }}</span>
+                    {% if item.disciplina.pre_requisitos.all %}
+                    <small class="text-soft">
+                        Pré-requisitos:
+                        {% for pr in item.disciplina.pre_requisitos.all %}{{ pr.codigo }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    </small>
+                    {% endif %}
+                </span>
+            </label>
+
+            <fieldset class="discipline-picker-cargas">
+                <legend>Horários</legend>
+                {% if item.cargas %}
+                <div class="carga-chip-grid">
+                    {% for carga_id, carga_label in item.cargas %}
+                    <label class="carga-chip">
+                        <input
+                            type="checkbox"
+                            name="cargas_{{ item.disciplina.id }}"
+                            value="{{ carga_id }}"
+                        >
+                        <span>{{ carga_label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-soft">Nenhum horário cadastrado.</p>
+                {% endif %}
+            </fieldset>
+            <p class="discipline-picker-hint text-soft">
+                <i class="fa-regular fa-hand-pointer"></i>
+                Marque a disciplina para escolher os horários.
+            </p>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">Nenhuma disciplina encontrada para este curso.</p>
+    {% endif %}
+
+    <div class="form-actions">
+        <button type="submit" class="primary">
+            <i class="fa-solid fa-check"></i>
+            Criar grade
+        </button>
+        <a href="{% url 'app:grade-list' %}" class="secondary">Cancelar</a>
+    </div>
+</form>
+
+{% endif %}
 {% endblock %}

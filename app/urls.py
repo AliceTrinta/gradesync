@@ -6,54 +6,59 @@ from app import views
 app_name = "app"
 
 urlpatterns = [
-    # Auth
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
     path("cadastro/", views.cadastro, name="cadastro"),
     path("recuperasenha/", views.recuperasenha, name="recuperasenha"),
 
-    # Home / API
     path("", views.home, name="home"),
     path("api/status/", views.api_status, name="api-status"),
 
-    # Grades
     path("grades/", views.grade_list, name="grade-list"),
-    path("grades/nova/", views.grade_create, name="grade-create"),
-    path("grades/<uuid:grade_id>/editar/", views.grade_edit, name="grade-edit"),
-    path("grades/<uuid:grade_id>/excluir/", views.grade_delete, name="grade-delete"),
+    path("grades/nova/", views.grade_criar, name="grade-criar"),
+    path("grades/<uuid:grade_id>/", views.grade_detalhe, name="grade-detalhe"),
+    path(
+        "grades/<uuid:grade_id>/excluir/",
+        views.grade_excluir,
+        name="grade-excluir",
+    ),
 
-    # Roteiro de Estudo
     path("roteiro/", views.roteiro, name="roteiro"),
+    path("roteiro/criar/", views.roteiro_criar, name="roteiro-criar"),
+    path("roteiro/excluir/", views.roteiro_excluir, name="roteiro-excluir"),
+    path(
+        "roteiro/blocos/adicionar/",
+        views.roteiro_bloco_adicionar,
+        name="roteiro-bloco-adicionar",
+    ),
+    path(
+        "roteiro/blocos/<str:bloco_id>/editar/",
+        views.roteiro_bloco_editar,
+        name="roteiro-bloco-editar",
+    ),
+    path(
+        "roteiro/blocos/<str:bloco_id>/remover/",
+        views.roteiro_bloco_remover,
+        name="roteiro-bloco-remover",
+    ),
 
-    # Simulações
-    path("simulacoes/", views.simulacao_list, name="simulacao-list"),
-    path("simulacoes/nova/", views.simulacao_create, name="simulacao-create"),
-    path("simulacoes/<uuid:simulacao_id>/editar/", views.simulacao_edit, name="simulacao-edit"),
-    path("simulacoes/<uuid:simulacao_id>/excluir/", views.simulacao_delete, name="simulacao-delete"),
-    path("simulacoes/<uuid:simulacao_id>/confirmar/", views.simulacao_confirmar, name="simulacao-confirmar"),
-
-    # Avaliações
-    path("avaliacoes/", views.avaliacao_list, name="avaliacao-list"),
-    path("avaliacoes/nova/", views.avaliacao_create, name="avaliacao-create"),
-    path("avaliacoes/<uuid:avaliacao_id>/editar/", views.avaliacao_edit, name="avaliacao-edit"),
-    path("avaliacoes/<uuid:avaliacao_id>/excluir/", views.avaliacao_delete, name="avaliacao-delete"),
-
-    # Catálogo
-    path("disciplinas/", views.disciplina_list, name="disciplina-list"),
-    path("professores/", views.professor_list, name="professor-list"),
-
-    # Perfil
-    path("perfil/", views.perfil, name="perfil"),
-    path("perfil/desativar/", views.desativar_conta, name="desativar-conta"),
-
-    # Ajuda
-    path("duvidas/", views.duvidas, name="duvidas"),
-
-    # Configuracoes
-    path("configuracoes/", views.configuracoes, name="configuracoes"),
-    path("dispositivos/", views.dispositivos, name="dispositivos"),
     path("notificacoes/", views.notificacoes, name="notificacoes"),
+    path(
+        "notificacoes/<uuid:notif_id>/marcar-lida/",
+        views.notificacao_marcar_lida,
+        name="notificacoes-marcar-lida",
+    ),
+    path(
+        "notificacoes/marcar-todas/",
+        views.notificacao_marcar_todas,
+        name="notificacoes-marcar-todas",
+    ),
+
+    path("configuracoes/", views.configuracoes, name="configuracoes"),
     path("acessibilidade/", views.acessibilidade, name="acessibilidade"),
+    path("dispositivos/", views.dispositivos, name="dispositivos"),
+
+    path("duvidas/", views.duvidas, name="duvidas"),
     path("sobre/", views.sobre, name="sobre"),
     path("idiomas/", views.idiomas, name="idiomas"),
 ]

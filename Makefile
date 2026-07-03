@@ -1,6 +1,6 @@
-.PHONY: setup migrate run lint tests coverage
+.PHONY: setup migrate run lint tests coverage collectstatic
 
-PYTHON = python
+PYTHON ?= py
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -25,3 +25,7 @@ tests:
 coverage:
 	$(PYTHON) -m coverage run --source=app,gradesync manage.py test
 	$(PYTHON) -m coverage report -m
+
+collectstatic:
+	$(PYTHON) manage.py collectstatic --noinput
+

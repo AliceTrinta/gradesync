@@ -1,126 +1,73 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
+{% extends 'app/base.html' %}
 
-<head>
+{% block title %}GradeSync | Notificações{% endblock %}
 
-    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Notificações</title>
-
-    <link rel="stylesheet" href="{% static 'app/notificacoes.css' %}">
-
-    <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-</head>
-
-<body>
-
-    <!-- topo -->
-
-    <div class="topo">
-
-        <div class="logo-area">
-
-            <h2>GradeSync</h2>
-
-        </div>
-
-        <div class="sair">
-
-            <i class="fa-solid fa-right-from-bracket"></i>
-
-            <a href="#">Sair</a>
-
-        </div>
-
+{% block content %}
+<section class="page-header">
+    <a class="back-link" href="{% url 'app:home' %}" aria-label="Voltar para o início">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Notificações</h1>
+        <p>Alertas sobre aulas, prazos e atualizações da sua conta.</p>
     </div>
+</section>
 
-    <!-- conteudo -->
+{% if notificacoes %}
+    {% if nao_lidas and nao_lidas > 0 %}
+    <div class="notif-toolbar">
+        <span>
+            <strong>{{ nao_lidas }}</strong> não lida{{ nao_lidas|pluralize }}
+        </span>
+        <form method="post" action="{% url 'app:notificacoes-marcar-todas' %}">
+            {% csrf_token %}
+            <button type="submit" class="secondary">
+                <i class="fa-solid fa-check-double"></i>
+                Marcar todas como lidas
+            </button>
+        </form>
+    </div>
+    {% endif %}
 
-    <div class="conteudo">
-
-        <!-- titulo -->
-
-        <div class="titulo">
-
-            <i class="fa-solid fa-arrow-left"></i>
-
-            <h1>Notificações</h1>
-
-        </div>
-
-        <!-- notificacao -->
-
-        <div class="card-notificacao">
-
-            <!-- texto -->
-
-            <div class="texto-card">
-
-                <h3>Ativar notificações</h3>
-
-                <p>Receba lembretes de aulas e tarefas.</p>
-
+    <div class="notif-list">
+        {% for notif in notificacoes %}
+        <div class="notif-card{% if not notif.lida %} nao-lida{% endif %}">
+            <div class="notif-body">
+                <h3>
+                    {% if notif.tipo == 'sucesso' %}<i class="fa-solid fa-circle-check icon-sucesso"></i>
+                    {% elif notif.tipo == 'aviso' %}<i class="fa-solid fa-triangle-exclamation icon-aviso"></i>
+                    {% elif notif.tipo == 'erro' %}<i class="fa-solid fa-circle-exclamation icon-erro"></i>
+                    {% else %}<i class="fa-solid fa-circle-info icon-info"></i>
+                    {% endif %}
+                    {{ notif.titulo }}
+                </h3>
+                <p>{{ notif.mensagem }}</p>
+                <p class="notif-meta">{{ notif.criada_em|date:"d/m/Y H:i" }}</p>
             </div>
-
-            <!-- interruptor -->
-
-            <div class="interruptor-area">
-
-                <div class="interruptor">
-
-                    <span class="slider"></span>
-
-                </div>
-                
+            <div class="notif-actions">
+                <form method="post" action="{% url 'app:notificacoes-marcar-lida' notif.id %}">
+                    {% csrf_token %}
+                    <label class="toggle" title="{% if notif.lida %}Lida{% else %}Marcar como lida{% endif %}">
+                        <input type="checkbox"
+                               {% if notif.lida %}checked disabled{% endif %}
+                               onchange="this.form.submit()">
+                        <span class="slider"></span>
+                    </label>
+                </form>
             </div>
-
         </div>
-
+        {% endfor %}
     </div>
 
-    <!-- aba inferior -->
+{% else %}
 
-    <div class="aba-inferior">
-
-        <div class="item-aba">
-
-            <i class="fa-regular fa-calendar"></i>
-
-            <p>Grade</p>
-
-        </div>
-
-        <div class="item-aba">
-
-            <i class="fa-solid fa-book-open"></i>
-
-            <p>Roteiro</p>
-
-        </div>
-
-        <div class="item-aba">
-
-            <i class="fa-regular fa-circle-question"></i>
-
-            <p>Ajuda</p>
-
-        </div>
-
-        <div class="item-aba ativo">
-
-            <i class="fa-solid fa-gear"></i>
-
-            <p>Config</p>
-
-        </div>
-
+<div class="empty-panel">
+    <div class="empty-panel-icon">
+        <i class="fa-regular fa-bell-slash"></i>
     </div>
+    <h2>Sem notificações</h2>
+    <p>Você está em dia! Novos avisos aparecerão aqui.</p>
+</div>
 
-</body>
-
-</html>
+{% endif %}
+{% endblock %}

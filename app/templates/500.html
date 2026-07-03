@@ -1,0 +1,26 @@
+{% extends 'app/base.html' %}
+{% load static %}
+
+{% block title %}Erro interno · GradeSync{% endblock %}
+
+{% block content %}
+<section class="base-preview">
+    <div class="base-preview-card">
+        <p class="eyebrow">Erro 500</p>
+        <h1 class="base-preview-title">Algo deu errado</h1>
+        <h2 class="base-preview-subtitle">Estamos trabalhando para resolver o quanto antes.</h2>
+        <p class="text-soft">Tente novamente em alguns instantes. Se o problema persistir, entre em contato pela central de dúvidas.</p>
+
+        <div class="hero-actions">
+            <a class="primary" href="{% url 'app:home' %}">
+                <i class="fa-solid fa-house"></i>
+                Voltar para o início
+            </a>
+            <a class="secondary" href="{% url 'app:duvidas' %}">
+                <i class="fa-regular fa-circle-question"></i>
+                Central de dúvidas
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

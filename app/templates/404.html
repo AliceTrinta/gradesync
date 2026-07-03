@@ -1,0 +1,26 @@
+{% extends 'app/base.html' %}
+{% load static %}
+
+{% block title %}Página não encontrada · GradeSync{% endblock %}
+
+{% block content %}
+<section class="base-preview">
+    <div class="base-preview-card">
+        <p class="eyebrow">Erro 404</p>
+        <h1 class="base-preview-title">Página não encontrada</h1>
+        <h2 class="base-preview-subtitle">Não conseguimos localizar essa página.</h2>
+        <p class="text-soft">Talvez ela tenha sido movida, ou o endereço esteja incorreto.</p>
+
+        <div class="hero-actions">
+            <a class="primary" href="{% url 'app:home' %}">
+                <i class="fa-solid fa-house"></i>
+                Voltar para o início
+            </a>
+            <a class="secondary" href="{% url 'app:duvidas' %}">
+                <i class="fa-regular fa-circle-question"></i>
+                Central de dúvidas
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

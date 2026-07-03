@@ -1,225 +1,270 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Roteiro de Estudo</title>
+{% extends 'app/base.html' %}
 
-  <link rel="stylesheet" href="{% static 'app/roteiro.css' %}">
+{% block title %}GradeSync | Roteiro de Estudo{% endblock %}
 
-  <link rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-</head>
+{% block content %}
+<section class="page-header">
+    <a class="back-link" href="{% url 'app:home' %}" aria-label="Voltar para o início">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Roteiro de Estudo</h1>
+        <p>
+            {% if roteiro %}
+            {{ roteiro.titulo }} · atualizado em {{ roteiro.atualizado_em|date:"d/m/Y H:i" }}
+            {% else %}
+            O roteiro é semanal e é gerado a partir das disciplinas da sua grade.
+            {% endif %}
+        </p>
+    </div>
+</section>
 
-<body>
+{% if not tem_grade %}
 
-<header class="topbar">
+<div class="empty-panel">
+    <div class="empty-panel-icon">
+        <i class="fa-regular fa-calendar"></i>
+    </div>
+    <h2>Antes de gerar o roteiro, monte sua grade</h2>
+    <p>
+        O roteiro de estudos é personalizado com base nas disciplinas
+        que você está cursando. Crie a sua grade do semestre para
+        começar.
+    </p>
+    <a href="{% url 'app:grade-criar' %}" class="primary">
+        <i class="fa-solid fa-plus"></i>
+        Criar minha grade
+    </a>
+</div>
 
-  <div class="logo">
-    <img src="logo.png" alt="Logo">
-    <span>GradeSync</span>
-  </div>
+{% elif slots_grid %}
 
-  <a href="#" class="logout">
-    <i class="fa-solid fa-right-from-bracket"></i>
-    Sair
-  </a>
+<div class="roteiro-toolbar">
+    <div class="roteiro-toolbar-info">
+        <span class="roteiro-toolbar-eyebrow">Grade atual</span>
+        <strong class="roteiro-toolbar-current">
+            {{ roteiro.titulo|default:"Roteiro" }}
+        </strong>
+    </div>
+    <div class="roteiro-toolbar-actions">
+        <form method="post" action="{% url 'app:roteiro-criar' %}" class="roteiro-toolbar-form">
+            {% csrf_token %}
+            {% if grades|length > 1 %}
+            <div class="roteiro-toolbar-field">
+                <label for="grade_id">Base</label>
+                <select name="grade_id" id="grade_id" class="inline-select">
+                    {% for g in grades %}
+                    <option value="{{ g.id }}">{{ g.periodo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% elif grades %}
+            <input type="hidden" name="grade_id" value="{{ grades.0.id }}">
+            {% endif %}
+            <button type="submit" class="secondary" title="Gera um novo roteiro a partir da grade">
+                <i class="fa-solid fa-rotate"></i>
+                Recriar
+            </button>
+        </form>
+        <form
+            method="post"
+            action="{% url 'app:roteiro-excluir' %}"
+            onsubmit="return confirm('Excluir o roteiro atual?');"
+        >
+            {% csrf_token %}
+            <button type="submit" class="ghost-danger" title="Remove o roteiro">
+                <i class="fa-regular fa-trash-can"></i>
+                Excluir
+            </button>
+        </form>
+    </div>
+</div>
 
-</header>
-
-<main class="container">
-
-  <div class="title-area">
-    <h1>Roteiro de Estudo</h1>
-    <p>Visualize e gerencie seu roteiro semanal</p>
-  </div>
-
-  <div class="schedule">
-
-    <div class="header">
-      <div>Hora</div>
-      <div>Seg</div>
-      <div>Ter</div>
-      <div>Qua</div>
-      <div>Qui</div>
-      <div>Sex</div>
-      <div>Sáb</div>
+<div class="schedule">
+    <div class="schedule-header">
+        <div>Hora</div>
+        <div>Seg</div>
+        <div>Ter</div>
+        <div>Qua</div>
+        <div>Qui</div>
+        <div>Sex</div>
+        <div>Sáb</div>
     </div>
 
-    <div class="row">
-      <div class="time">08:00</div>
+    {% for row in slots_grid %}
+    <div class="schedule-row">
+        <div class="time">{{ row.hora }}</div>
+        {% for cell in row.cells %}
+        <div class="cell{% if cell %} cell--filled{% endif %}">
+            {% if cell %}
+            <div
+                class="slot-pill {{ cell.cor|default:'blue' }}{% if not cell.is_head %} slot-pill--continua{% endif %}{% if not cell.is_tail %} slot-pill--joined-bottom{% endif %}"
+                title="{{ cell.titulo }} ({{ cell.hora_inicio }}–{{ cell.hora_final }})"
+            >
+                {% if cell.is_head %}
+                {{ cell.titulo }}
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
 
-      <div class="cell">
-        <div class="pill blue">Cálculo: Limites</div>
-      </div>
-
-      <div class="cell"></div>
-
-      <div class="cell">
-        <div class="pill green">Álgebra: Vetores</div>
-      </div>
-
-      <div class="cell">
-        <div class="pill purple">C: Intro e Variáveis</div>
-      </div>
-
-      <div class="cell"></div>
-      <div class="cell"></div>
+<section class="bloco-editor">
+    <div class="bloco-editor-head">
+        <div>
+            <h2 class="section-heading">Seus blocos de estudo</h2>
+            <p class="text-soft">
+                A primeira sugestão foi gerada automaticamente. Ajuste,
+                adicione ou remova blocos como quiser — horários que
+                conflitem com sua grade são bloqueados.
+            </p>
+        </div>
+        <button
+            type="button"
+            class="primary"
+            data-bloco-toggle="add-bloco-form"
+        >
+            <i class="fa-solid fa-plus"></i>
+            Adicionar bloco
+        </button>
     </div>
 
-    <div class="row">
-      <div class="time">09:00</div>
+    <form
+        id="add-bloco-form"
+        method="post"
+        action="{% url 'app:roteiro-bloco-adicionar' %}"
+        class="bloco-form"
+        hidden
+    >
+        {% csrf_token %}
+        {% include "app/_bloco_form_fields.html" with slot=None %}
+        <div class="bloco-form-actions">
+            <button type="submit" class="primary">
+                <i class="fa-solid fa-check"></i>
+                Adicionar
+            </button>
+            <button type="button" class="secondary" data-bloco-close>
+                Cancelar
+            </button>
+        </div>
+    </form>
 
-      <div class="cell">
-        <div class="pill blue">Cálculo: Limites</div>
-      </div>
+    {% if roteiro.slots %}
+    <ul class="bloco-list">
+        {% for slot in roteiro.slots %}
+        <li class="bloco-list-item">
+            <div class="bloco-list-info">
+                <span class="bloco-list-color {{ slot.cor|default:'blue' }}"></span>
+                <div>
+                    <strong>{{ slot.titulo }}</strong>
+                    <small class="text-soft">
+                        {{ slot.dia|capfirst }} · {{ slot.hora_inicio }}–{{ slot.hora_final }}
+                    </small>
+                </div>
+            </div>
+            <div class="bloco-list-actions">
+                <button
+                    type="button"
+                    class="secondary"
+                    data-bloco-toggle="edit-{{ slot.id }}"
+                >
+                    <i class="fa-regular fa-pen-to-square"></i>
+                    Editar
+                </button>
+                <form
+                    method="post"
+                    action="{% url 'app:roteiro-bloco-remover' slot.id %}"
+                    onsubmit="return confirm('Remover este bloco?');"
+                    class="bloco-list-remove-form"
+                >
+                    {% csrf_token %}
+                    <button type="submit" class="ghost-danger">
+                        <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                </form>
+            </div>
+            <form
+                id="edit-{{ slot.id }}"
+                method="post"
+                action="{% url 'app:roteiro-bloco-editar' slot.id %}"
+                class="bloco-form bloco-form--edit"
+                hidden
+            >
+                {% csrf_token %}
+                {% include "app/_bloco_form_fields.html" with slot=slot %}
+                <div class="bloco-form-actions">
+                    <button type="submit" class="primary">
+                        <i class="fa-solid fa-check"></i>
+                        Salvar
+                    </button>
+                    <button type="button" class="secondary" data-bloco-close>
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">Nenhum bloco no roteiro. Adicione o primeiro!</p>
+    {% endif %}
+</section>
 
-      <div class="cell"></div>
+{% else %}
 
-      <div class="cell">
-        <div class="pill green">Álgebra: Vetores</div>
-      </div>
-
-      <div class="cell">
-        <div class="pill purple">C: Condicionais</div>
-      </div>
-
-      <div class="cell"></div>
-
-      <div class="cell">
-        <div class="pill red">Revisão Geral</div>
-      </div>
+<div class="empty-panel">
+    <div class="empty-panel-icon">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
     </div>
+    <h2>Vamos gerar seu roteiro</h2>
+    <p>
+        Escolha em qual grade basear o roteiro. Vamos distribuir blocos
+        de estudo pelas disciplinas dessa grade, priorizando os horários
+        livres da semana.
+    </p>
+    <form
+        method="post"
+        action="{% url 'app:roteiro-criar' %}"
+        class="empty-panel-form"
+    >
+        {% csrf_token %}
+        <label for="grade_id" class="visually-hidden">Grade</label>
+        <select name="grade_id" id="grade_id" class="inline-select">
+            {% for g in grades %}
+            <option value="{{ g.id }}">Grade {{ g.periodo }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="primary">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            Criar roteiro
+        </button>
+    </form>
+</div>
 
-    <div class="row">
-      <div class="time">10:00</div>
+{% endif %}
+{% endblock %}
 
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-    </div>
-
-    <div class="row">
-      <div class="time">11:00</div>
-
-      <div class="cell">
-        <div class="pill blue">Cálculo: Exercícios</div>
-      </div>
-
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-    </div>
-
-    <div class="row">
-      <div class="time">12:00</div>
-
-      <div class="cell"></div>
-      <div class="cell"></div>
-
-      <div class="cell">
-        <div class="pill green">Álgebra: Matrizes</div>
-      </div>
-
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-    </div>
-
-    <div class="row">
-      <div class="time">13:00</div>
-
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-
-      <div class="cell">
-        <div class="pill purple">C: Prática Lab</div>
-      </div>
-
-      <div class="cell">
-        <div class="pill red">Italiano: exercícios</div>
-      </div>
-
-      <div class="cell"></div>
-    </div>
-
-    <div class="row">
-      <div class="time">14:00</div>
-
-      <div class="cell">
-        <div class="pill blue">Cálculo: Revisão</div>
-      </div>
-
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-    </div>
-
-    <div class="row">
-      <div class="time">15:00</div>
-
-      <div class="cell"></div>
-      <div class="cell"></div>
-
-      <div class="cell">
-        <div class="pill green">Álgebra: Exercícios</div>
-      </div>
-
-      <div class="cell"></div>
-      <div class="cell"></div>
-      <div class="cell"></div>
-    </div>
-
-  </div>
-
-  <div class="buttons">
-
-    <button class="primary">
-      <i class="fa-solid fa-wand-magic-sparkles"></i>
-      Criar Roteiro de Estudo
-    </button>
-
-    <button class="secondary">
-      <i class="fa-solid fa-pen"></i>
-      Editar Roteiro
-    </button>
-
-  </div>
-
-</main>
-
-<nav class="bottom-nav">
-
-  <a href="#">
-    <i class="fa-regular fa-calendar"></i>
-    Grade
-  </a>
-
-  <a href="#" class="active">
-    <i class="fa-regular fa-book-open"></i>
-    Roteiro
-  </a>
-
-  <a href="#">
-    <i class="fa-regular fa-circle-question"></i>
-    Ajuda
-  </a>
-
-  <a href="#">
-    <i class="fa-solid fa-gear"></i>
-    Config
-  </a>
-
-</nav>
-
-</body>
-</html>
+{% block extra_js %}
+<script>
+document.querySelectorAll('[data-bloco-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var target = document.getElementById(btn.dataset.blocoToggle);
+        if (!target) return;
+        target.hidden = !target.hidden;
+        if (!target.hidden) {
+            var firstInput = target.querySelector('input, select, textarea');
+            if (firstInput) firstInput.focus();
+        }
+    });
+});
+document.querySelectorAll('[data-bloco-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var form = btn.closest('form');
+        if (form) form.hidden = true;
+    });
+});
+</script>
+{% endblock %}

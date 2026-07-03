@@ -1,0 +1,248 @@
+/*
+ * prefs.css — Preferências de acessibilidade globais.
+ *
+ * Este CSS é injetado nas páginas standalone do Daniel para que as
+ * preferências de tamanho de fonte / alto contraste / reduzir animações
+ * funcionem sem quebrar o layout específico que ele desenhou.
+ *
+ * Regras minimalistas: nada de reset universal, nada de override de
+ * classes .topo/.card/.aba-inferior etc.
+ */
+
+/* --------------------------------------------------------
+   Tamanho de fonte (body.fonte-*)
+   -------------------------------------------------------- */
+body.fonte-pequeno       { font-size: 14px; }
+body.fonte-medio         { font-size: 16px; }
+body.fonte-grande        { font-size: 18px; }
+body.fonte-muito-grande  { font-size: 22px; }
+
+/* --------------------------------------------------------
+   Alto contraste
+   -------------------------------------------------------- */
+body.alto-contraste {
+    filter: contrast(1.3) saturate(1.15);
+}
+
+/* --------------------------------------------------------
+   Reduzir animações
+   -------------------------------------------------------- */
+body.reduzir-animacoes *,
+body.reduzir-animacoes *::before,
+body.reduzir-animacoes *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+    scroll-behavior: auto !important;
+}
+
+/* --------------------------------------------------------
+   Toggle funcional — reaproveita .interruptor + .bola do Daniel.
+   Não altera o CSS dele; só reage ao checkbox oculto adjacente.
+   -------------------------------------------------------- */
+.toggle-check {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+}
+
+.toggle-check:checked + .interruptor {
+    background-color: #2563eb !important;
+}
+
+.toggle-check:checked + .interruptor .bola,
+.toggle-check:checked + .interruptor .slider {
+    margin-left: 55px !important;
+    transition: margin 0.2s ease;
+}
+
+.interruptor .bola,
+.interruptor .slider {
+    transition: margin 0.2s ease;
+}
+
+/* Foco acessível no toggle */
+.toggle-check:focus-visible + .interruptor {
+    outline: 3px solid #93c5fd;
+    outline-offset: 2px;
+}
+
+/* Label do toggle wrapper */
+.toggle-wrapper {
+    display: contents;
+    cursor: pointer;
+}
+
+/* --------------------------------------------------------
+   Utilitários para estados dinâmicos (usados nos HTMLs do
+   Daniel sem alterar o CSS original dele).
+   -------------------------------------------------------- */
+
+/* Marcador visual "não lida" nas notificações */
+.card-notificacao.nao-lida {
+    border-left: 4px solid #2563eb;
+}
+
+/* Botão fantasma padrão (marcar todas, etc.) */
+.ghost-btn {
+    background: white;
+    border: 1px solid #d1d5db;
+    padding: 10px 18px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 15px;
+    color: #111827;
+    font-family: inherit;
+}
+.ghost-btn:hover {
+    background: #f3f4f6;
+}
+
+/* Empty states */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+}
+.empty-state i {
+    font-size: 48px;
+    color: #d1d5db;
+    margin-bottom: 15px;
+    display: block;
+}
+.empty-state h3 {
+    margin-bottom: 8px;
+    color: #111827;
+}
+.empty-state p {
+    color: #6b7280;
+}
+
+/* Meta/tempo */
+.notif-meta {
+    font-size: 14px;
+    color: #9ca3af;
+    margin-top: 8px;
+}
+.list-toolbar {
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.list-toolbar p {
+    color: #6b7280;
+    margin: 0;
+}
+
+/* Cores dos ícones por tipo de notificação */
+.icon-sucesso { color: #059669; }
+.icon-aviso   { color: #d97706; }
+.icon-erro    { color: #dc2626; }
+.icon-info    { color: #0369a1; }
+
+/* Mensagem flash (Django messages) */
+.flash-messages {
+    margin-bottom: 20px;
+}
+.flash-messages .card-notificacao {
+    padding: 15px 20px;
+}
+.flash-messages .card-notificacao p {
+    margin: 0;
+}
+
+/* --------------------------------------------------------
+   Toolbar acima de listas (contador + ação em massa).
+   Usado em notificacoes.html.
+   -------------------------------------------------------- */
+.list-toolbar {
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.list-toolbar p {
+    color: #6b7280;
+    margin: 0;
+}
+
+/* --------------------------------------------------------
+   Radio-buttons estilo pill (acessibilidade > tamanho fonte).
+   Torna os .botao_tamanho do Daniel selecionáveis via radio
+   escondido, sem JavaScript.
+   -------------------------------------------------------- */
+.botao-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+}
+
+.botao_tamanho {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+.botao-radio:checked + .botao_tamanho {
+    background: #2563eb !important;
+    color: white !important;
+    border-color: transparent !important;
+}
+
+.botao-radio:focus-visible + .botao_tamanho {
+    outline: 3px solid #93c5fd;
+    outline-offset: 2px;
+}
+
+/* --------------------------------------------------------
+   Card de opcoes (acessibilidade) usado como <label> clicável.
+   O CSS do Daniel espera <div class="card_opcoes">; permitir
+   também <label class="card_opcoes"> sem alterar o layout.
+   -------------------------------------------------------- */
+label.card_opcoes {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: white;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+label.card_opcoes p {
+    margin: 0;
+    font-size: 25px;
+}
+
+/* --------------------------------------------------------
+   Botão "Salvar" alternativo dentro dos formulários das
+   páginas do Daniel (mantendo estética dele: gradiente azul).
+   -------------------------------------------------------- */
+.btn-salvar {
+    padding: 14px 28px;
+    background: linear-gradient(90deg, #2563eb, #3b82f6);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+.btn-salvar:hover {
+    background: linear-gradient(90deg, #1d4ed8, #2563eb);
+}

@@ -26,6 +26,10 @@ class DisciplinaService:
     def listar_disciplinas(self):
         return self.disciplina_repository.list()
 
+    def listar_por_curso(self, codigo_curso):
+        prefixo = (codigo_curso or "").strip().upper() + "-"
+        return self.disciplina_repository.list().filter(codigo__istartswith=prefixo)
+
     def atualizar_disciplina(
         self,
         disciplina_id,

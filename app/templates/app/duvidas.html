@@ -1,45 +1,103 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Duvidas Frequentes</title>
-<link rel="stylesheet" href="{% static 'app/duvidas.css' %}">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-</head>
-<body>
-<!--topo-->
-<div class="topo">
-    <i class="fa-solid fa-arrow-left"></i>
-    <h2>Duvidas Frequentes</h2>
-</div>
-<!--conteudo-->
-<div class="caixaconteudo">
-    <!--simbolo robo cont-->
-    <div class="robo">
-        <i class="fa-solid fa-robot"></i>
+{% extends 'app/base.html' %}
+
+{% block title %}GradeSync | Dúvidas Frequentes{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <a class="back-link" href="{% url 'app:home' %}" aria-label="Voltar para o início">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Central de Ajuda</h1>
+        <p>Pergunte sobre o GradeSync ou explore as dúvidas mais comuns.</p>
     </div>
-    <div class="conteudotexto">
-        <h2>Ola! Como posso ajudar?</h2>
-        <p>Pergunte qualquer duvida sobre o GradeSync ou organizacao academica</p>
-    </div>
-        <!--botoes sugestoes-->
-        <div class="botoes">
-            <button>Como criar uma grade?</button>
-            <button>Como editar meu roteiro de estudo?</button>
-            <button>O que sao pre-requisitos?</button>
+</section>
+
+<div class="chat-shell">
+    <div class="chat-box">
+        <div class="chat-avatar">
+            <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="chat-intro">
+            <h2>Olá! Como posso ajudar?</h2>
+            <p>Pergunte qualquer dúvida sobre o GradeSync ou organização acadêmica.</p>
+        </div>
+
+        <div class="chat-messages" id="chat-mensagens" aria-live="polite"></div>
+
+        <div class="chat-suggestions">
+            <button type="button" class="chat-suggestion" data-prompt="Como criar uma grade?">
+                Como criar uma grade?
+            </button>
+            <button type="button" class="chat-suggestion" data-prompt="Como editar meu roteiro de estudo?">
+                Como editar meu roteiro?
+            </button>
+            <button type="button" class="chat-suggestion" data-prompt="O que sao pre-requisitos?">
+                O que são pré-requisitos?
+            </button>
         </div>
     </div>
-</div>
-<!--barra de digitacao-->
-<div class="barracaixa">
-    <div class="barrainput">
-        <p class="textoinput">Digite sua duvida...</p>
-        <div class="botaoenvia">
+
+    <form class="chat-input-bar" id="chat-form" autocomplete="off" onsubmit="return false;">
+        {% csrf_token %}
+        <input type="text" id="chat-input"
+               placeholder="Digite sua dúvida..."
+               maxlength="500"
+               aria-label="Digite sua dúvida">
+        <button type="submit" class="chat-send" aria-label="Enviar">
             <i class="fa-solid fa-paper-plane"></i>
-        </div>
-    </div>
+        </button>
+    </form>
 </div>
-</body>
-</html>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Placeholder de chatbot - sera substituido por IA real.
+    (function () {
+        var form = document.getElementById('chat-form');
+        var input = document.getElementById('chat-input');
+        var mensagens = document.getElementById('chat-mensagens');
+
+        var respostasCanned = {
+            'grade': 'Voce pode criar uma grade pelo painel admin em /admin/grades/. O CRUD web dedicado esta sendo trabalhado.',
+            'roteiro': 'Va em Roteiro no menu superior e clique em "Criar roteiro de estudo". O sistema gera sugestoes automaticas.',
+            'pre-requisito': 'Pre-requisitos sao disciplinas obrigatorias antes de outra. Ao adicionar uma turma na simulacao, o sistema valida.',
+            'pré-requisito': 'Pre-requisitos sao disciplinas obrigatorias antes de outra. Ao adicionar uma turma na simulacao, o sistema valida.',
+        };
+
+        function responder(pergunta) {
+            var lower = pergunta.toLowerCase();
+            for (var chave in respostasCanned) {
+                if (lower.indexOf(chave) !== -1) return respostasCanned[chave];
+            }
+            return 'Assistente por IA em desenvolvimento. Enquanto isso, explore o menu superior ou o painel /admin/.';
+        }
+
+        function adicionarMensagem(texto, tipo) {
+            var div = document.createElement('div');
+            div.className = 'chat-bubble ' + tipo;
+            div.textContent = texto;
+            mensagens.appendChild(div);
+            mensagens.scrollTop = mensagens.scrollHeight;
+        }
+
+        function enviar(texto) {
+            var t = (texto || '').trim();
+            if (!t) return;
+            adicionarMensagem(t, 'user');
+            input.value = '';
+            setTimeout(function () { adicionarMensagem(responder(t), 'bot'); }, 350);
+        }
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            enviar(input.value);
+        });
+
+        document.querySelectorAll('.chat-suggestion').forEach(function (btn) {
+            btn.addEventListener('click', function () { enviar(btn.dataset.prompt); });
+        });
+    })();
+</script>
+{% endblock %}

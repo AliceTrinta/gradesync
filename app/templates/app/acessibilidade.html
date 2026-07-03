@@ -1,93 +1,87 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
+{% extends 'app/base.html' %}
 
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Acessibilidade</title>
-<link rel="stylesheet" href="{% static 'app/acessibilidade.css' %}">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-</head>
+{% block title %}GradeSync | Acessibilidade{% endblock %}
 
-<body>
-    <!--topo-->
-    <div class="topo">
-        <div class="area_da_logo">
-        <h2>GradeSync</h2>
-        </div>
-        <div class="sair">
-            <i class="fa-solid faright-from-bracket"></i>
-            <p>Sair</p>
+{% block content %}
+<section class="page-header">
+    <a class="back-link" href="{% url 'app:configuracoes' %}" aria-label="Voltar para configurações">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Acessibilidade</h1>
+        <p>Ajuste tamanho do texto, contraste e animações da interface.</p>
+    </div>
+</section>
+
+<form method="post" action="{% url 'app:acessibilidade' %}">
+    {% csrf_token %}
+
+    <div class="pref-section">
+        <p class="pref-section-title">Tamanho do texto</p>
+        <div class="size-picker">
+            <input type="radio" name="tamanho_fonte" value="pequeno" id="ft_p"
+                   {% if prefs_acessibilidade.tamanho_fonte == 'pequeno' %}checked{% endif %}>
+            <label for="ft_p">Pequeno</label>
+
+            <input type="radio" name="tamanho_fonte" value="medio" id="ft_m"
+                   {% if prefs_acessibilidade.tamanho_fonte == 'medio' or not prefs_acessibilidade %}checked{% endif %}>
+            <label for="ft_m">Padrão</label>
+
+            <input type="radio" name="tamanho_fonte" value="grande" id="ft_g"
+                   {% if prefs_acessibilidade.tamanho_fonte == 'grande' %}checked{% endif %}>
+            <label for="ft_g">Grande</label>
+
+            <input type="radio" name="tamanho_fonte" value="muito-grande" id="ft_mg"
+                   {% if prefs_acessibilidade.tamanho_fonte == 'muito-grande' %}checked{% endif %}>
+            <label for="ft_mg">Muito grande</label>
         </div>
     </div>
-    <!--conteudo-->
-    <div class="conteudo">
-        <!--titulo-->
-        <div class="titulo">
-            <i class="fa-solid fa-arrow-left"></i>
-            <h1>Acessibilidade</h1>
-        </div>
-        <!--cards tamanho-->
-        <div class="card_tamanho">
-            <p style="font-size: 20px;">Tamanho do texto</p>
-            <div class="botoes_tamanho">
-                <button class="botao_tamanho">Pequeno</button>
-                <button class="botao_tamanho ativo">Padrao</button>
-                <button class="botao_tamanho">Grande</button>
-                <button class="botao_tamanho">Muito grande</button>
+
+    <div class="pref-section">
+        <p class="pref-section-title">Opções visuais</p>
+
+        <div class="pref-row">
+            <div class="pref-row-body">
+                <strong>Alto contraste</strong>
+                <p>Aumenta o contraste dos textos e ícones.</p>
             </div>
+            <label class="toggle">
+                <input type="checkbox" name="alto_contraste"
+                       {% if prefs_acessibilidade.alto_contraste %}checked{% endif %}>
+                <span class="slider"></span>
+            </label>
         </div>
-        <!--cards opcoes-->
-        <div class="card_opcoes">
-            <p>Alto contraste</p>
-            <div class="interruptor">
-                <span class="bola"></span>
+
+        <div class="pref-row">
+            <div class="pref-row-body">
+                <strong>Reduzir animações</strong>
+                <p>Diminui transições e efeitos de movimento.</p>
             </div>
+            <label class="toggle">
+                <input type="checkbox" name="reduzir_animacoes"
+                       {% if prefs_acessibilidade.reduzir_animacoes %}checked{% endif %}>
+                <span class="slider"></span>
+            </label>
         </div>
-        <div class="card_opcoes">
-            <p>Reduzir animacoes</p>
-            <div class="interruptor">
-                <span class="bola"></span>
+
+        <div class="pref-row">
+            <div class="pref-row-body">
+                <strong>Sublinhar links</strong>
+                <p>Destaca links com sublinhado permanente.</p>
             </div>
-        </div>
-        <div class="card_opcoes">
-            <p>Sublinhar links</p>
-            <div class="interruptor">
-                <span class="bola"></span>
-            </div>
-        </div>
-        <div class="card_opcoes">
-            <p>Fonte para dislexia</p>
-            <div class="interruptor">
-                <span class="bola"></span>
-            </div>
+            <label class="toggle">
+                <input type="checkbox" name="sublinhar_links"
+                       {% if prefs_acessibilidade.sublinhar_links %}checked{% endif %}>
+                <span class="slider"></span>
+            </label>
         </div>
     </div>
-        
-    <!--aba inferior-->
-    <div class="aba_inferior">
-        <div class="item_aba">
-            <i class="fa-regular fa-calendar"></i>
-            <p>Grade</p>
-        </div>
-        <div class="item_aba">
-            <i class="fa-solid fa-book-open"></i>
-            <p>Roteiro</p>
-        </div>
-        <div class="item_aba">
-            <i class="fa-regular fa-circle-question"></i>
-            <p>Ajuda</p>
-        </div>
-        <div class="item_aba">
-            <div class="ativo_aba">
-                <i class="fa-solid fa-gear"></i>
-                <p>Config</p>
-            </div>
-        </div>
+
+    <div class="button-row">
+        <button type="submit" class="primary">
+            <i class="fa-solid fa-check"></i>
+            Salvar preferências
+        </button>
     </div>
-</body>
-
-
-
-</html>
+</form>
+{% endblock %}
