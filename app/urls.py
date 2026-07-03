@@ -10,6 +10,7 @@ urlpatterns = [
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
     path("cadastro/", views.cadastro, name="cadastro"),
+    path("recuperasenha/", views.recuperasenha, name="recuperasenha"),
 
     # Home / API
     path("", views.home, name="home"),
@@ -54,4 +55,6 @@ urlpatterns = [
     path("notificacoes/", views.notificacoes, name="notificacoes"),
     path("acessibilidade/", views.acessibilidade, name="acessibilidade"),
     path("sobre/", views.sobre, name="sobre"),
+    path("idiomas/", views.idiomas, name="idiomas"),
 ]
+

@@ -142,6 +142,10 @@ def home(request):
     return render(request, "app/home.html", context)
 
 
+def recuperasenha(request):
+    return render(request, "app/recuperasenha.html")
+
+
 # ---------------------------------------------------------------------------
 # Grades (B3)
 # ---------------------------------------------------------------------------
@@ -486,6 +490,11 @@ def notificacoes(request):
 
 def acessibilidade(request):
     return render(request, "app/acessibilidade.html")
+
+
+def idiomas(request):
+    return render(request, "app/idiomas.html")
+
 
 
 # ---------------------------------------------------------------------------
