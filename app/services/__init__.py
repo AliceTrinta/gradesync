@@ -1,3 +1,4 @@
+from .ai_service import AIService
 from .aluno_service import AlunoService
 from .avaliacao_service import AvaliacaoService
 from .cargahoraria_service import CargaHorariaService
@@ -15,6 +16,7 @@ from .simulacao_service import SimulacaoService
 from .turma_service import TurmaService
 
 __all__ = [
+    "AIService",
     "AlunoService",
     "AvaliacaoService",
     "CargaHorariaService",

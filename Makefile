@@ -1,4 +1,4 @@
-.PHONY: setup migrate run lint tests coverage collectstatic
+.PHONY: setup migrate run lint tests coverage collectstatic ai-ping
 
 PYTHON ?= py
 
@@ -28,4 +28,7 @@ coverage:
 
 collectstatic:
 	$(PYTHON) manage.py collectstatic --noinput
+
+ai-ping:
+	$(PYTHON) manage.py ai_ping
 

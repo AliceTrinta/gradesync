@@ -86,7 +86,7 @@ A aplicacao ficara disponivel em **http://localhost:8000**.
 | `/login/` | Tela de login |
 | `/cadastro/` | Cadastro de aluno |
 | `/sobre/` | Pagina institucional |
-| `/duvidas/` | Central de duvidas (mock) |
+| `/duvidas/` | Central de ajuda (chatbot com IA + fallback offline) |
 | `/api/status/` | JSON com status da aplicacao |
 
 **Autenticadas (`@login_required`):**
@@ -99,10 +99,12 @@ A aplicacao ficara disponivel em **http://localhost:8000**.
 | `/grades/<uuid>/excluir/` | Confirmacao + exclusao |
 | `/roteiro/` | Roteiro de estudo semanal |
 | `POST /roteiro/criar/` | Gera o roteiro a partir da grade selecionada |
+| `POST /roteiro/criar-ia/` | Gera o roteiro usando IA (Gemini) — fallback silencioso |
 | `POST /roteiro/excluir/` | Remove o roteiro |
 | `POST /roteiro/blocos/adicionar/` | Adiciona um bloco livre ao roteiro |
 | `POST /roteiro/blocos/<id>/editar/` | Edita um bloco existente |
 | `POST /roteiro/blocos/<id>/remover/` | Remove um bloco do roteiro |
+| `POST /duvidas/perguntar/` | Endpoint AJAX do chatbot (IA + rate-limit) |
 | `/notificacoes/` | Lista de notificacoes |
 | `POST /notificacoes/<id>/marcar-lida/` | Marca uma como lida |
 | `POST /notificacoes/marcar-todas/` | Marca todas como lidas |
@@ -147,6 +149,68 @@ sem `.env`.
 | `SECRET_KEY` | `dev-only-secret-key` | Chave secreta do Django |
 | `DEBUG` | `True` | Modo debug (use `False` em producao) |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts permitidos (CSV) |
+| `EMAIL_BACKEND` | `console` | Backend de e-mail (console em dev; SMTP em prod) |
+| `AI_PROVIDER` | `gemini` | Provedor de IA (por enquanto so `gemini`) |
+| `AI_API_KEY` | `""` | Chave da API do Gemini. Vazia = IA desligada, tudo cai no fallback. |
+| `AI_MODEL` | `gemini-1.5-flash` | Nome do modelo |
+| `AI_TIMEOUT_SECONDS` | `30` | Timeout HTTP das chamadas ao Gemini |
+| `AI_MAX_TOKENS` | `1024` | Limite de tokens de saida |
+
+---
+
+## Ligando a IA (Gemini) em 3 passos
+
+A integracao com IA e **totalmente opcional**. Se `AI_API_KEY` estiver
+vazia, o botao "Sugerir com IA" nao aparece, o chatbot usa o dicionario
+estatico local e nenhuma chamada de rede acontece. Para ativar:
+
+1. **Obtenha a chave** em <https://aistudio.google.com/app/apikey>
+   (gratis com limite generoso para dev).
+2. **Adicione no `.env`**:
+   ```
+   AI_API_KEY=sua-chave-aqui
+   ```
+3. **Confirme a conectividade** com o comando de sanidade:
+   ```powershell
+   make ai-ping
+   # ou:
+   python manage.py ai_ping
+   ```
+   Saida esperada:
+   ```
+   Ping IA -> provedor=gemini, modelo=gemini-1.5-flash, timeout=30s
+   OK em 450 ms -> 'ok'
+   ```
+
+Apos ativar, o botao **"✨ Sugerir com IA"** aparece na tela de
+Roteiro (ao lado de "Criar roteiro") e o chatbot em `/duvidas/`
+passa a responder texto livre via Gemini.
+
+### Como funciona o fallback
+
+O chatbot e o roteiro se comportam de forma diferente quando a IA nao esta disponivel:
+
+1. **Sem chave** -> `AIProviderError` imediato, o botao nem aparece
+   nos templates (via `ia_disponivel` no context processor).
+2. **IA falha no roteiro** (timeout, quota, erro de rede) -> a view
+   do roteiro cai no gerador deterministico (`gerar_roteiro_padrao`).
+3. **IA falha no chatbot** -> o front exibe uma mensagem curta
+   (`MSG_OFFLINE` quando `ia_disponivel=False`, `MSG_ERRO` quando o
+   `fetch` falha ou o backend devolve `fonte:"fallback"`). Sem
+   respostas pre-escritas no cliente.
+4. **IA responde mas com <4 slots validos** apos filtragem (colidem
+   com a grade, ou estao fora de 06:00-22:00) -> ainda assim cai no
+   gerador deterministico. O `prompt_usado` do roteiro guarda o
+   motivo para rastreabilidade (`"[IA] ..."` ou
+   `"[fallback deterministico apos IA devolver N slots]"`).
+
+### Rate-limit e cache
+
+- **Chatbot:** maximo 10 perguntas por hora deslizante por sessao.
+- **Cache:** respostas do Gemini sao cacheadas em memoria (LocMem)
+  por 1h (roteiro) ou 30min (duvidas), com chave =
+  `SHA-256(prompt_completo)`. Em producao com multiplos workers,
+  trocar por Redis/Memcached em `settings.CACHES`.
 
 ---
 
@@ -161,6 +225,7 @@ sem `.env`.
 | `make tests` | Executa a suite de testes |
 | `make coverage` | Executa testes com cobertura e gera relatorio |
 | `make collectstatic` | Coleta arquivos estaticos em `staticfiles/` |
+| `make ai-ping` | Testa conectividade real com o provedor de IA (Gemini) |
 
 ---
 
@@ -188,7 +253,9 @@ Para cobertura:
 make coverage
 ```
 
-**138 testes** cobrindo models, services, flows e web.
+**209 testes** cobrindo models, services, flows, web e integracao com
+IA (3 skipped por padrao — os de rede real, so rodam com `AI_API_KEY`
+setada no ambiente).
 
 ---
 
@@ -225,16 +292,16 @@ gradesync/                       ← Raiz
 │   ├── services/                ← Regras de negocio (13 services)
 │   ├── templates/app/           ← Templates HTML
 │   ├── static/app/              ← styles.css unificado
-│   ├── tests/                   ← Testes (138 testes)
-│   ├── management/commands/     ← seed_dados
+│   ├── tests/                   ← Testes (209 testes)
+│   ├── management/commands/     ← seed_dados, ai_ping
 │   ├── admin.py                 ← Django Admin
 │   ├── views.py                 ← Views (web + API)
 │   ├── urls.py                  ← Rotas da app
 │   ├── forms.py                 ← Forms (login, cadastro)
 │   ├── signals.py               ← Auto-cria prefs default
-│   ├── context_processors.py    ← Injeta app_version, nav_items, prefs
+│   ├── context_processors.py    ← Injeta app_version, nav_items, prefs, ia_disponivel
 │   ├── cursos.py                ← Cursos disponiveis (ADM, CC)
-│   └── exceptions.py            ← Excecoes de dominio
+│   └── exceptions.py            ← Excecoes de dominio (dominio + IA)
 ├── gradesync/                   ← Configuracao Django
 │   ├── settings.py              ← Le .env via python-decouple
 │   ├── urls.py
@@ -267,6 +334,7 @@ gradesync/                       ← Raiz
 |--------|--------|-----|
 | Django | >=5.0, <6.0 | Framework web |
 | python-decouple | >=3.8, <4.0 | Leitura de variaveis de ambiente |
+| google-generativeai | >=0.7, <1.0 | Cliente do Google Gemini (opcional — so usado se `AI_API_KEY` estiver setada) |
 | coverage | >=7.6, <8.0 | Cobertura de testes |
 | ruff | >=0.11, <0.12 | Linter Python |
 

@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from app import __version__
 from app.cursos import CURSOS, CURSOS_DICT, periodo_atual_permitido
 from app.exceptions import (
+    AIProviderError,
     BlocoConflitaComGradeError,
     BlocoRoteiroInvalidoError,
     ConflitoDeHorarioError,
@@ -177,8 +178,101 @@ def duvidas(request):
     return render(request, "app/duvidas.html")
 
 
+_DUVIDAS_JANELA_SEG = 60 * 60
+_DUVIDAS_MAX_POR_JANELA = 10
+
+
+@login_required
+@require_POST
+def duvidas_perguntar(request):
+    """Endpoint AJAX do chatbot. Sempre HTTP 200 com JSON
+    {resposta, fonte: ia|fallback, restantes}."""
+    import time
+
+    from app.services import AIService, GradeService, RoteiroService
+
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return JsonResponse(
+            {"resposta": "Sessão encerrada. Faça login novamente.",
+             "fonte": "fallback", "restantes": 0},
+            status=200,
+        )
+
+    pergunta = (request.POST.get("pergunta") or "").strip()
+    if not pergunta:
+        return JsonResponse(
+            {"resposta": "Envie uma pergunta.", "fonte": "fallback",
+             "restantes": _DUVIDAS_MAX_POR_JANELA},
+            status=200,
+        )
+    if len(pergunta) > 500:
+        return JsonResponse(
+            {"resposta": "Pergunta muito longa (máximo 500 caracteres).",
+             "fonte": "fallback", "restantes": _DUVIDAS_MAX_POR_JANELA},
+            status=200,
+        )
+
+    agora = int(time.time())
+    inicio_janela = request.session.get("ai_duvidas_janela_ini", 0)
+    contador = request.session.get("ai_duvidas_contador", 0)
+    if agora - inicio_janela > _DUVIDAS_JANELA_SEG:
+        inicio_janela = agora
+        contador = 0
+    if contador >= _DUVIDAS_MAX_POR_JANELA:
+        return JsonResponse(
+            {"resposta": (
+                "⏳ Voce atingiu o limite de perguntas para a IA nesta "
+                "hora. Tente novamente em breve ou use as sugestoes."
+            ),
+             "fonte": "fallback", "restantes": 0},
+            status=200,
+        )
+
+    grade = GradeService().listar_do_aluno(aluno).first()
+    roteiro = RoteiroService().obter_do_aluno(aluno)
+    prefs_conta = PreferenciaContaService().obter_do_aluno(aluno)
+    tela_atual = request.POST.get("tela") or request.META.get("HTTP_REFERER", "")
+
+    try:
+        resposta = AIService().responder_duvida(
+            aluno=aluno,
+            pergunta=pergunta,
+            tela_atual=tela_atual,
+            grade=grade,
+            roteiro=roteiro,
+            prefs_conta=prefs_conta,
+        )
+        fonte = "ia"
+    except AIProviderError as exc:
+        return JsonResponse(
+            {"resposta": (
+                f"🤖 IA indisponível no momento ({exc}). "
+                "Voce pode usar as sugestoes ou tentar de novo."
+            ),
+             "fonte": "fallback",
+             "restantes": _DUVIDAS_MAX_POR_JANELA - contador},
+            status=200,
+        )
+
+    contador += 1
+    request.session["ai_duvidas_janela_ini"] = inicio_janela
+    request.session["ai_duvidas_contador"] = contador
+
+    return JsonResponse(
+        {"resposta": resposta, "fonte": fonte,
+         "restantes": _DUVIDAS_MAX_POR_JANELA - contador},
+        status=200,
+    )
+
+
 def sobre(request):
     return render(request, "app/sobre.html")
+
+
+@login_required
+def privacidade(request):
+    return render(request, "app/privacidade.html")
 
 
 @login_required
@@ -244,6 +338,52 @@ def roteiro_criar(request):
 
     RoteiroService().gerar_roteiro_padrao(aluno=aluno, grade=grade)
     messages.success(request, f"Roteiro gerado com base na grade {grade.periodo}!")
+    return redirect("app:roteiro")
+
+
+@login_required
+@require_POST
+def roteiro_criar_ia(request):
+    aluno, redir = _require_aluno(request)
+    if redir:
+        return redir
+
+    grades = list(GradeService().listar_do_aluno(aluno))
+    if not grades:
+        messages.error(
+            request,
+            "Voce precisa criar uma grade do semestre antes de gerar o roteiro.",
+        )
+        return redirect("app:grade-list")
+
+    grade_id = request.POST.get("grade_id")
+    grade = _obter_grade_do_aluno(aluno, grade_id) if grade_id else None
+    if grade is None:
+        grade = grades[0]
+
+    try:
+        roteiro = RoteiroService().sugerir_roteiro_via_ia(
+            aluno=aluno, grade=grade
+        )
+    except AIProviderError as exc:
+        messages.warning(
+            request,
+            f"IA indisponível ({exc}). Geramos um roteiro padrão para voce.",
+        )
+        RoteiroService().gerar_roteiro_padrao(aluno=aluno, grade=grade)
+        return redirect("app:roteiro")
+
+    if (roteiro.prompt_usado or "").startswith("[IA]"):
+        messages.success(
+            request,
+            f"Roteiro sugerido pela IA com base na grade {grade.periodo}! ✨",
+        )
+    else:
+        messages.info(
+            request,
+            f"A IA não devolveu blocos suficientes; usamos o gerador padrão "
+            f"para a grade {grade.periodo}.",
+        )
     return redirect("app:roteiro")
 
 

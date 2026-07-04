@@ -20,8 +20,10 @@ GradeSync é um sistema acadêmico de gerenciamento de grades curriculares, cons
 > regras de negócio (CR, pré-req, conflito de horário),
 > **Grade do Semestre** (wizard em 2 passos com período automático,
 > bloqueio de duplicata, colapso condicional dos horários via CSS
-> `:has()`) e comando `seed_dados` idempotente com catálogo mockado
-> de ADM + CC. **138 testes verdes.**
+> `:has()`), comando `seed_dados` idempotente com catálogo mockado
+> de ADM + CC e **Assistente por IA (Google Gemini)** integrando
+> `/roteiro/criar-ia/` e `/duvidas/perguntar/` com fallback triplo.
+> **209 testes verdes (3 opt-in de rede).**
 
 ---
 
@@ -308,10 +310,19 @@ class BlocoConflitaComGradeError(GradeSyncError):    # Bloco choca com carga da 
 - **Idioma:** `pt-br`, timezone `America/Sao_Paulo`, USE_TZ=True.
 - **Static:** `STATIC_URL="static/"`, `STATIC_ROOT=BASE_DIR/"staticfiles"`.
 - **Env vars via `python-decouple`:** `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`
-  (com cast tolerante para bool, defaults funcionam sem `.env`).
+  (com cast tolerante para bool, defaults funcionam sem `.env`),
+  `EMAIL_BACKEND`/`DEFAULT_FROM_EMAIL` (default console),
+  `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL`/`AI_TIMEOUT_SECONDS`/`AI_MAX_TOKENS`
+  (default: gemini, chave vazia, `gemini-1.5-flash`, 30s, 1024). Chave
+  vazia desliga a IA e cai no fallback.
+- **CACHES:** `django.core.cache.backends.locmem.LocMemCache` como cache
+  do `AIService`. Chave = `ai:{prefixo}:{modelo}:{SHA-256(prompt)}`.
+  TTL 1h para roteiro, 30min para dúvidas. Em produção com múltiplos
+  workers, trocar por Redis/Memcached.
 - **Context processor customizado:** `app.context_processors.gradesync_context`
   injeta `app_version`, `aluno`, `nav_items`, `notificacoes_nao_lidas`,
-  `prefs_acessibilidade`, `prefs_conta`, `active_nav`.
+  `prefs_acessibilidade`, `prefs_conta`, `active_nav`, `ia_disponivel`
+  (bool derivado de `settings.AI_API_KEY`).
 - **Signals:** ao criar um `Aluno`, `PreferenciaAcessibilidade` e
   `PreferenciaConta` default são criadas automaticamente.
 
@@ -320,6 +331,7 @@ class BlocoConflitaComGradeError(GradeSyncError):    # Bloco choca com carga da 
 |--------|--------|
 | Django | ≥5.0, <6.0 |
 | python-decouple | ≥3.8, <4.0 |
+| google-generativeai | ≥0.7, <1.0 |
 | coverage | ≥7.6, <8.0 |
 | ruff | ≥0.11, <0.12 |
 
@@ -334,12 +346,14 @@ class BlocoConflitaComGradeError(GradeSyncError):    # Bloco choca com carga da 
 | `make tests` | `python manage.py test` |
 | `make coverage` | Coverage run + report |
 | `make collectstatic` | `collectstatic --noinput` para `staticfiles/` |
+| `make ai-ping` | `python manage.py ai_ping` — testa conectividade real com o Gemini |
 
 ### Comando customizado
 
 | Comando | O que faz |
 |---------|-----------|
 | `python manage.py seed_dados` | Popula 8 professores, 10 cargas horárias e 25 disciplinas (ADM + CC) com pré-req. Idempotente. Aceita `--limpar`. |
+| `python manage.py ai_ping` | Testa conectividade real com o provedor de IA (Gemini). Bypassa cache. Exit 0 = OK, 1 = falha. |
 
 ---
 
@@ -370,10 +384,12 @@ O namespace da app é `app`. A view `api_status` retorna JSON com `status`,
 | `/grades/<uuid>/excluir/` | `grade_excluir` | `app:grade-excluir` |
 | `/roteiro/` | `roteiro` | `app:roteiro` |
 | `POST /roteiro/criar/` | `roteiro_criar` | `app:roteiro-criar` |
+| `POST /roteiro/criar-ia/` | `roteiro_criar_ia` | `app:roteiro-criar-ia` |
 | `POST /roteiro/excluir/` | `roteiro_excluir` | `app:roteiro-excluir` |
 | `POST /roteiro/blocos/adicionar/` | `roteiro_bloco_adicionar` | `app:roteiro-bloco-adicionar` |
 | `POST /roteiro/blocos/<id>/editar/` | `roteiro_bloco_editar` | `app:roteiro-bloco-editar` |
 | `POST /roteiro/blocos/<id>/remover/` | `roteiro_bloco_remover` | `app:roteiro-bloco-remover` |
+| `POST /duvidas/perguntar/` | `duvidas_perguntar` | `app:duvidas-perguntar` |
 | `/notificacoes/` | `notificacoes` | `app:notificacoes` |
 | `POST /notificacoes/<uuid>/marcar-lida/` | `notificacao_marcar_lida` | `app:notificacoes-marcar-lida` |
 | `POST /notificacoes/marcar-todas/` | `notificacao_marcar_todas` | `app:notificacoes-marcar-todas` |
@@ -424,7 +440,7 @@ git history se forem retomadas no futuro).
 
 ---
 
-## Testes — 138 testes passando
+## Testes — 209 testes (206 rodam por padrão, 3 opt-in de rede)
 
 | Arquivo | Tipo | Técnica |
 |---------|------|---------|
@@ -432,7 +448,9 @@ git history se forem retomadas no futuro).
 | `test_services.py` | Unitários | `unittest.mock.patch` + `MagicMock` nos repositories |
 | `test_flows.py` | Integração | DB real (SQLite), services com repositories reais |
 | `test_desempenho.py` | Regras de desempenho | Média/CR/CRA, pré-requisitos, conflito de horário |
-| `test_web.py` | Endpoints HTTP | Django test client — auth, home, roteiro, notif, prefs |
+| `test_web.py` | Endpoints HTTP | Django test client — auth, home, roteiro, notif, prefs, IA views |
+| `test_ai_service.py` | Unitários (mock SDK) | `Mock()` no cliente Gemini, sem toque na rede |
+| `test_ai_integration.py` | Integração real (opt-in) | `@skipUnless(bool(os.getenv("AI_API_KEY")))` |
 
 ### Cenários testados incluem:
 
@@ -519,7 +537,146 @@ Turma e CargaHoraria.**
 7. **`select_related`/`prefetch_related`** usados consistentemente nos repositories.
 8. **Versão** rastreada em `app/__init__.py` e refletida no CHANGELOG.
 9. **Linter:** ruff (sem warnings tolerados).
-10. **Testes:** Toda nova feature precisa de testes correspondentes nos 3 níveis (model, service/unit, integration/flow).
+10. **Testes:** Toda nova feature precisa de testes correspondentes nos 3 níveis (model, service/unit, integration/flow). Testes de rede real ficam atrás de `@skipUnless(bool(os.getenv("AI_API_KEY")))` (opt-in).
+
+---
+
+## M10 — Assistente por IA (Google Gemini)
+
+Duas features do produto passaram a ser servidas por LLM real:
+
+1. **Roteiro sugerido pela IA** — `POST /roteiro/criar-ia/`, botão
+   `✨ Sugerir com IA` no empty state do roteiro.
+2. **Chatbot de dúvidas real** — `POST /duvidas/perguntar/`, chat
+   AJAX em `/duvidas/` com typing indicator.
+
+Se `AI_API_KEY` estiver vazia, o context processor publica
+`ia_disponivel=False`, os botões/toggles dependentes de IA não são
+renderizados e qualquer chamada ao SDK levanta `AIProviderError`
+antes de tocar a rede.
+
+### Componentes
+
+```
+app/services/ai_service.py           ← Adapter sobre google-generativeai
+app/services/roteiro_service.py      ← +sugerir_roteiro_via_ia() + helpers
+app/views.py                         ← +roteiro_criar_ia, +duvidas_perguntar
+app/context_processors.py            ← +ia_disponivel
+app/exceptions.py                    ← +4 AI* exceptions
+app/management/commands/ai_ping.py   ← comando de sanidade (make ai-ping)
+app/templates/app/duvidas.html       ← fetch async + fallback client-side
+app/templates/app/roteiro.html       ← botão "Sugerir com IA"
+app/static/app/styles.css            ← .chat-bubble--loading (3 dots)
+```
+
+### AIService
+
+Adapter fino, sem lógica de negócio. Cliente Gemini injetável via
+construtor (`AIService(client=Mock(), api_key="fake")`) para testes
+sem tocar a rede.
+
+**API pública:**
+- `sugerir_roteiro(*, aluno, grade, blocos_livres, disciplinas_meta, use_cache=True) -> dict` — retorna `{"slots": [...], "raciocinio": str}`.
+- `responder_duvida(*, aluno, pergunta, tela_atual="", grade=None, roteiro=None, prefs_conta=None, use_cache=True) -> str`.
+
+**System prompts** (constantes de módulo, testáveis via import):
+`SYSTEM_ROTEIRO` (JSON puro, regras de 06:00-22:00, blocos de 1h/2h,
+máx 3/dia e 12/semana, proporcional a `carga_horaria`) e
+`SYSTEM_DUVIDAS` (PT-BR, ≤4 parágrafos, bullets `•`, regra
+"roteiro exige grade").
+
+**Cache** (LocMem em `settings.CACHES`): chave
+`ai:{prefixo}:{modelo}:{SHA-256(prompt_completo)}`, TTL 1h para
+roteiro e 30min para dúvidas. `use_cache=False` ignora leitura e
+gravação (usado em `ai_ping` e nos testes de integração).
+
+**Tradução de erros do SDK** em `_chamar_gemini`: `TimeoutError` →
+`AITimeoutError`; msg com `"quota"|"rate"|"429"` →
+`AIQuotaExceededError`; msg com `"timeout"|"deadline"` →
+`AITimeoutError`; resposta vazia → `AIRespostaInvalidaError`;
+demais → `AIProviderError`.
+
+**Proteção de PII:** `_montar_contexto_duvidas` **nunca** envia
+`matricula`, `email` ou `username`. Só `first_name` + estado
+de grade/roteiro/preferências. Garantido por
+`AIServicePromptSemPIITests`.
+
+### RoteiroService.sugerir_roteiro_via_ia
+
+1. `_blocos_livres_da_grade(grade)` subtrai as cargas da grade da
+   janela 06:00-22:00 de seg-sab.
+2. `_disciplinas_meta_da_grade(grade)` serializa código, nome,
+   carga_horaria, horários, pré-requisitos.
+3. Chama `AIService.sugerir_roteiro(...)`.
+4. Cada slot devolvido passa por `_preparar_bloco`,
+   `_garantir_sem_conflito_com_grade` e
+   `_garantir_dentro_da_faixa_permitida`. Slots inválidos são
+   descartados silenciosamente.
+5. Se sobram `< MIN_SLOTS_IA=4` → cai no `_montar_slots`
+   determinístico e grava `prompt_usado="[fallback deterministico ...]"`.
+6. Caso contrário grava `prompt_usado="[IA] {raciocinio}"`.
+
+`AIProviderError` propaga para a view (que decide como degradar).
+
+### Views
+
+**`roteiro_criar_ia`** (`POST`, `@login_required`): sem grade →
+redireciona para `app:grade-list`; sucesso → `messages.success` +
+redirect para `app:roteiro`; `AIProviderError` → `messages.warning`
++ `gerar_roteiro_padrao()`; se `prompt_usado` não começa com
+`[IA]` → `messages.info` explicando o fallback interno.
+
+**`duvidas_perguntar`** (`POST`, `@login_required`): sempre HTTP
+200 com JSON `{resposta, fonte, restantes}`. `fonte ∈ {"ia",
+"fallback"}`. Rate-limit por sessão: 10 perguntas/hora deslizante
+em `request.session["ai_duvidas_contador"]` +
+`["ai_duvidas_janela_ini"]`. Ao estourar → `restantes=0`,
+`fonte="fallback"` e **não** consome cota. `AIProviderError`
+também não consome cota. Contexto injetado busca grade atual,
+roteiro e preferências do aluno.
+
+### Frontend
+
+**`duvidas.html`** — form com `data-endpoint` e `data-ia-disponivel`
+lidos via `form.dataset` no JS (evita template tags dentro de
+expressões JavaScript). O chat sempre delega ao endpoint quando
+`ia_disponivel=True`; se estiver desligado mostra `MSG_OFFLINE`, e
+quando o `fetch` falha ou o backend responde `fonte:"fallback"`
+exibe `MSG_ERRO`. Sem respostas pré-escritas no cliente.
+
+**`roteiro.html`** — botão `✨ Sugerir com IA` renderizado só se
+`ia_disponivel = True`. Form usa `data-sync-from="grade_id"` com
+handler genérico no `extra_js` que copia o valor do `<select>`
+principal antes do submit.
+
+**`styles.css`** — `.chat-bubble--loading` (`@keyframes
+chatBubbleLoadingBlink`) respeita `body.reduzir-animacoes` e
+`prefers-reduced-motion: reduce`.
+
+### Fallback do roteiro e do chatbot
+
+| Camada | Trigger | Comportamento |
+|--------|---------|---------------|
+| 1. Sem chave | `AI_API_KEY=""` | `ia_disponivel=False`; botão nem aparece; `AIProviderError` imediato. |
+| 2. IA falha | Timeout, quota, resposta vazia | View captura `AIProviderError`. Roteiro cai no gerador determinístico; chatbot mostra `MSG_ERRO` (mensagem curta no front). |
+| 3. IA responde mal | `<MIN_SLOTS_IA=4` slots válidos após filtragem | `RoteiroService` internamente cai no `_montar_slots`. `prompt_usado` guarda o motivo. |
+
+### Testes (52 novos → total 209)
+
+Todos os unitários **mockam** o cliente Gemini. Integração real
+vive em `test_ai_integration.py` com
+`@skipUnless(bool(os.getenv("AI_API_KEY")))` — pulado por padrão.
+
+- **`test_ai_service.py`** (27): parse JSON, cache HIT/MISS,
+  tradução de erros do SDK, prompts contêm regras e faixa horária,
+  PII não vaza, `_get_client` sem SDK levanta `AIProviderError`,
+  defaults vêm de settings.
+- **`RoteiroServiceIATests`** em `test_services.py` (8): sem grade,
+  sucesso, `<4` slots → fallback, filtragem por faixa e por conflito
+  com grade, `AIProviderError` propaga, blocos livres corretos.
+- **Views em `test_web.py`**: `RoteiroCriarIATests` (5),
+  `DuvidasPerguntarTests` (7) incluindo rate-limit na 11ª pergunta.
+- **`test_ai_integration.py`** (3, opt-in).
 
 ---
 

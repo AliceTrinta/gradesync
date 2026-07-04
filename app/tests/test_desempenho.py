@@ -74,7 +74,7 @@ class DesempenhoServiceTests(TestCase):
     def test_cr_periodo_media_do_semestre(self):
         self._criar_avaliacao(self.calc, 8, semestre=1)
         self._criar_avaliacao(self.alg, 6, semestre=1)
-        self._criar_avaliacao(self.calc, 10, semestre=2)  # nao entra
+        self._criar_avaliacao(self.calc, 10, semestre=2)
 
         cr = self.service.calcular_cr_periodo(
             aluno=self.aluno, ano=2026, semestre=1
@@ -96,7 +96,6 @@ class DesempenhoServiceTests(TestCase):
         resultado = self.service.listar_medias_por_disciplina(aluno=self.aluno)
 
         self.assertEqual(len(resultado), 2)
-        # Ordenado por codigo
         self.assertEqual(resultado[0]["disciplina"], self.calc)
         self.assertEqual(resultado[0]["media"], Decimal("7.00"))
         self.assertEqual(resultado[0]["qtd_avaliacoes"], 2)
@@ -132,7 +131,6 @@ class SimulacaoPrerequisitoTests(TestCase):
             ano=2025,
             semestre=2,
         )
-        # Nao deve levantar
         self.service.validar_prerequisitos(aluno=self.aluno, disciplina=self.calc2)
 
     def test_prerequisito_nao_atendido_levanta_excecao(self):
@@ -147,7 +145,7 @@ class SimulacaoPrerequisitoTests(TestCase):
             aluno=self.aluno,
             professor=self.professor,
             disciplina=self.calc1,
-            nota=Decimal("3"),  # reprovado
+            nota=Decimal("3"),
             ano=2025,
             semestre=2,
         )
@@ -191,7 +189,6 @@ class SimulacaoConflitoHorarioTests(TestCase):
     def test_sem_conflito_horarios_diferentes(self):
         t1 = self._turma_com_horario(self.d1, "T1", "seg", time(8), time(10))
         t2 = self._turma_com_horario(self.d2, "T2", "seg", time(10), time(12))
-        # Nao deve levantar
         self.service.detectar_conflito_horario(turmas=[t1, t2])
 
     def test_sem_conflito_dias_diferentes(self):

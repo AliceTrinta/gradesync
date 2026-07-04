@@ -37,6 +37,14 @@ body.reduzir-animacoes *::after {
 }
 
 /* --------------------------------------------------------
+   Sublinhar links (destaque permanente)
+   -------------------------------------------------------- */
+body.sublinhar-links a {
+    text-decoration: underline !important;
+    text-underline-offset: 2px;
+}
+
+/* --------------------------------------------------------
    Toggle funcional — reaproveita .interruptor + .bola do Daniel.
    Não altera o CSS dele; só reage ao checkbox oculto adjacente.
    -------------------------------------------------------- */

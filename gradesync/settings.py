@@ -72,7 +72,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "gradesync.wsgi.application"
 
-# SQLite: arquivo persistente para desenvolvimento, in-memory para testes.
 if "test" in sys.argv:
     DATABASES = {
         "default": {
@@ -115,3 +114,26 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "app:login"
 LOGIN_REDIRECT_URL = "app:home"
+
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL",
+    default="GradeSync <no-reply@gradesync.local>",
+)
+
+AI_PROVIDER = config("AI_PROVIDER", default="gemini")
+AI_API_KEY = config("AI_API_KEY", default="")
+AI_MODEL = config("AI_MODEL", default="gemini-2.5-flash")
+AI_TIMEOUT_SECONDS = config("AI_TIMEOUT_SECONDS", default=30, cast=int)
+AI_MAX_TOKENS = config("AI_MAX_TOKENS", default=4096, cast=int)
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "gradesync-locmem",
+    }
+}
+

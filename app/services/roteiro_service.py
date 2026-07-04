@@ -10,8 +10,14 @@ from app.models import Turma
 from app.repositories import RoteiroRepository
 
 
-CORES = ["blue", "green", "purple", "amber", "red"]
+CORES = ["blue", "green", "purple", "red", "orange"]
 DIAS_VALIDOS = {"seg", "ter", "qua", "qui", "sex", "sab", "dom"}
+DIAS_ORDEM = ["seg", "ter", "qua", "qui", "sex", "sab"]
+
+HORA_MIN_ESTUDO = "06:00"
+HORA_MAX_ESTUDO = "22:00"
+
+MIN_SLOTS_IA = 4
 
 BLOCOS_ESTUDO = [
     ("seg", "08:00", "10:00"),
@@ -78,6 +84,131 @@ class RoteiroService:
             titulo=titulo or f"Roteiro {grade.periodo}",
             prompt_usado=f"[gerado a partir da grade {grade.periodo}]",
         )
+
+    def sugerir_roteiro_via_ia(self, *, aluno, grade, titulo=None,
+                               ai_service=None):
+        """Gera roteiro via IA. Se restar <MIN_SLOTS_IA slots validos
+        apos filtragem, cai no gerador deterministico. AIProviderError
+        propaga para a view decidir o fallback."""
+        if grade is None:
+            raise RoteiroSemGradeError()
+
+        from app.services import AIService
+        service_ia = ai_service or AIService()
+
+        blocos_livres = self._blocos_livres_da_grade(grade)
+        disciplinas_meta = self._disciplinas_meta_da_grade(grade)
+
+        resultado = service_ia.sugerir_roteiro(
+            aluno=aluno,
+            grade=grade,
+            blocos_livres=blocos_livres,
+            disciplinas_meta=disciplinas_meta,
+        )
+
+        slots_brutos = resultado.get("slots") or []
+        raciocinio = (resultado.get("raciocinio") or "").strip()
+
+        slots_validos = []
+        for bruto in slots_brutos:
+            if not isinstance(bruto, dict):
+                continue
+            try:
+                bloco = self._preparar_bloco(
+                    dia=bruto.get("dia"),
+                    hora_inicio=bruto.get("hora_inicio"),
+                    hora_final=bruto.get("hora_final"),
+                    titulo=bruto.get("titulo"),
+                    cor=bruto.get("cor", "blue"),
+                )
+                self._garantir_sem_conflito_com_grade(aluno, bloco)
+                self._garantir_dentro_da_faixa_permitida(bloco)
+            except (BlocoRoteiroInvalidoError, BlocoConflitaComGradeError):
+                continue
+            slots_validos.append(bloco)
+
+        if len(slots_validos) < MIN_SLOTS_IA:
+            slots_finais = self._montar_slots(grade)
+            prompt_usado = (
+                f"[fallback deterministico apos IA devolver "
+                f"{len(slots_validos)} slots validos (min={MIN_SLOTS_IA})]"
+            )
+        else:
+            slots_finais = slots_validos
+            prompt_usado = f"[IA] {raciocinio}" if raciocinio else "[IA]"
+
+        return self.salvar(
+            aluno=aluno,
+            slots=slots_finais,
+            titulo=titulo or f"Roteiro {grade.periodo}",
+            prompt_usado=prompt_usado,
+        )
+
+    def _blocos_livres_da_grade(self, grade):
+        h_min = int(HORA_MIN_ESTUDO.split(":", 1)[0])
+        h_max = int(HORA_MAX_ESTUDO.split(":", 1)[0])
+
+        ocupacao = {dia: set() for dia in DIAS_ORDEM}
+        turmas = list(grade.turmas.select_related("disciplina").all())
+        for turma in turmas:
+            for carga in turma.carga_horarias.all():
+                dia = _normalizar_dia(carga.dia)
+                if dia not in ocupacao:
+                    continue
+                ini = int(carga.hora_inicio.strftime("%H"))
+                fim = int(carga.hora_final.strftime("%H"))
+                for h in range(ini, fim):
+                    ocupacao[dia].add(h)
+
+        blocos = []
+        for dia in DIAS_ORDEM:
+            hora = h_min
+            while hora < h_max:
+                if hora in ocupacao[dia]:
+                    hora += 1
+                    continue
+                inicio = hora
+                while hora < h_max and hora not in ocupacao[dia]:
+                    hora += 1
+                fim = hora
+                if fim - inicio >= 1:
+                    blocos.append(
+                        (dia, f"{inicio:02d}:00", f"{fim:02d}:00")
+                    )
+        return blocos
+
+    def _disciplinas_meta_da_grade(self, grade):
+        turmas = list(grade.turmas.select_related("disciplina").all())
+        meta = []
+        for turma in turmas:
+            disc = turma.disciplina
+            horarios = [
+                (
+                    _normalizar_dia(c.dia),
+                    c.hora_inicio.strftime("%H:%M"),
+                    c.hora_final.strftime("%H:%M"),
+                )
+                for c in turma.carga_horarias.all()
+            ]
+            pre_reqs = [pr.codigo for pr in disc.pre_requisitos.all()]
+            meta.append({
+                "codigo": disc.codigo,
+                "nome": disc.nome,
+                "carga_horaria": getattr(disc, "carga_horaria", 0),
+                "horarios_de_aula": horarios,
+                "pre_requisitos": pre_reqs,
+            })
+        return meta
+
+    def _garantir_dentro_da_faixa_permitida(self, bloco):
+        if bloco["hora_inicio"] < HORA_MIN_ESTUDO:
+            raise BlocoRoteiroInvalidoError(
+                f"Bloco fora da faixa permitida (antes de {HORA_MIN_ESTUDO})."
+            )
+        if bloco["hora_final"] > HORA_MAX_ESTUDO:
+            raise BlocoRoteiroInvalidoError(
+                f"Bloco fora da faixa permitida (depois de {HORA_MAX_ESTUDO})."
+            )
 
     def adicionar_bloco(self, aluno, *, dia, hora_inicio, hora_final, titulo, cor="blue"):
         bloco = self._preparar_bloco(

@@ -242,6 +242,20 @@
             Criar roteiro
         </button>
     </form>
+    {% if ia_disponivel %}
+    <form
+        method="post"
+        action="{% url 'app:roteiro-criar-ia' %}"
+        class="empty-panel-form empty-panel-form--ia"
+    >
+        {% csrf_token %}
+        <input type="hidden" name="grade_id" data-sync-from="grade_id">
+        <button type="submit" class="secondary" title="Deixa a IA (Gemini) montar seu roteiro respeitando a grade">
+            <i class="fa-solid fa-sparkles"></i>
+            ✨ Sugerir com IA
+        </button>
+    </form>
+    {% endif %}
 </div>
 
 {% endif %}
@@ -249,6 +263,13 @@
 
 {% block extra_js %}
 <script>
+document.querySelectorAll('[data-sync-from]').forEach(function (target) {
+    var origem = document.getElementById(target.dataset.syncFrom);
+    if (!origem) return;
+    var sync = function () { target.value = origem.value; };
+    sync();
+    origem.addEventListener('change', sync);
+});
 document.querySelectorAll('[data-bloco-toggle]').forEach(function (btn) {
     btn.addEventListener('click', function () {
         var target = document.getElementById(btn.dataset.blocoToggle);

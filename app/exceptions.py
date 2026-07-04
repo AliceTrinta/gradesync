@@ -57,3 +57,30 @@ class BlocoConflitaComGradeError(GradeSyncError):
             f"O bloco em {dia} ({hora_inicio}-{hora_final}) conflita "
             f"com a disciplina {disciplina_codigo} da sua grade."
         )
+
+
+class AIProviderError(GradeSyncError):
+    """Erro generico do provedor de IA (rede, auth, resposta malformada)."""
+
+
+class AITimeoutError(AIProviderError):
+    def __init__(self, *, provedor, segundos):
+        self.provedor = provedor
+        self.segundos = segundos
+        super().__init__(f"Timeout ({segundos}s) ao consultar {provedor}.")
+
+
+class AIQuotaExceededError(AIProviderError):
+    def __init__(self, *, provedor, motivo=None):
+        self.provedor = provedor
+        self.motivo = motivo
+        base = f"Cota do provedor {provedor} foi excedida."
+        if motivo:
+            base += f" ({motivo})"
+        super().__init__(base)
+
+
+class AIRespostaInvalidaError(AIProviderError):
+    def __init__(self, motivo):
+        self.motivo = motivo
+        super().__init__(f"Resposta invalida da IA: {motivo}")

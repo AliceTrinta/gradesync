@@ -1,6 +1,6 @@
 {% extends 'app/base.html' %}
 
-{% block title %}GradeSync | Dúvidas Frequentes{% endblock %}
+{% block title %}GradeSync | Central de Ajuda{% endblock %}
 
 {% block content %}
 <section class="page-header">
@@ -9,7 +9,7 @@
     </a>
     <div class="page-header-body">
         <h1>Central de Ajuda</h1>
-        <p>Pergunte sobre o GradeSync ou explore as dúvidas mais comuns.</p>
+        <p>Pergunte sobre o GradeSync ou organização acadêmica.</p>
     </div>
 </section>
 
@@ -20,7 +20,7 @@
         </div>
         <div class="chat-intro">
             <h2>Olá! Como posso ajudar?</h2>
-            <p>Pergunte qualquer dúvida sobre o GradeSync ou organização acadêmica.</p>
+            <p>O assistente é gerado por IA e responde perguntas sobre grade, roteiro, preferências e uso do sistema.</p>
         </div>
 
         <div class="chat-messages" id="chat-mensagens" aria-live="polite"></div>
@@ -38,7 +38,9 @@
         </div>
     </div>
 
-    <form class="chat-input-bar" id="chat-form" autocomplete="off" onsubmit="return false;">
+    <form class="chat-input-bar" id="chat-form" autocomplete="off" onsubmit="return false;"
+          data-endpoint="{% url 'app:duvidas-perguntar' %}"
+          data-ia-disponivel="{% if user.is_authenticated and ia_disponivel %}1{% else %}0{% endif %}">
         {% csrf_token %}
         <input type="text" id="chat-input"
                placeholder="Digite sua dúvida..."
@@ -53,26 +55,18 @@
 
 {% block extra_js %}
 <script>
-    // Placeholder de chatbot - sera substituido por IA real.
     (function () {
         var form = document.getElementById('chat-form');
         var input = document.getElementById('chat-input');
         var mensagens = document.getElementById('chat-mensagens');
 
-        var respostasCanned = {
-            'grade': 'Voce pode criar uma grade pelo painel admin em /admin/grades/. O CRUD web dedicado esta sendo trabalhado.',
-            'roteiro': 'Va em Roteiro no menu superior e clique em "Criar roteiro de estudo". O sistema gera sugestoes automaticas.',
-            'pre-requisito': 'Pre-requisitos sao disciplinas obrigatorias antes de outra. Ao adicionar uma turma na simulacao, o sistema valida.',
-            'pré-requisito': 'Pre-requisitos sao disciplinas obrigatorias antes de outra. Ao adicionar uma turma na simulacao, o sistema valida.',
-        };
+        var iaDisponivel = form.dataset.iaDisponivel === '1';
+        var urlPerguntar = form.dataset.endpoint;
+        var csrfInput = form.querySelector('[name=csrfmiddlewaretoken]');
+        var csrf = csrfInput ? csrfInput.value : '';
 
-        function responder(pergunta) {
-            var lower = pergunta.toLowerCase();
-            for (var chave in respostasCanned) {
-                if (lower.indexOf(chave) !== -1) return respostasCanned[chave];
-            }
-            return 'Assistente por IA em desenvolvimento. Enquanto isso, explore o menu superior ou o painel /admin/.';
-        }
+        var MSG_OFFLINE = '🤖 O assistente por IA está desativado neste ambiente. Faça login e tente novamente quando ele estiver disponível.';
+        var MSG_ERRO = '⚠️ Não consegui falar com o assistente agora. Tente novamente em alguns segundos.';
 
         function adicionarMensagem(texto, tipo) {
             var div = document.createElement('div');
@@ -80,6 +74,56 @@
             div.textContent = texto;
             mensagens.appendChild(div);
             mensagens.scrollTop = mensagens.scrollHeight;
+            return div;
+        }
+
+        function adicionarLoading() {
+            var div = document.createElement('div');
+            div.className = 'chat-bubble bot chat-bubble--loading';
+            div.setAttribute('aria-label', 'Assistente digitando');
+            div.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+            mensagens.appendChild(div);
+            mensagens.scrollTop = mensagens.scrollHeight;
+            return div;
+        }
+
+        function trocarLoadingPor(bubbleLoading, texto, tipo) {
+            if (!bubbleLoading || !bubbleLoading.parentNode) {
+                adicionarMensagem(texto, tipo || 'bot');
+                return;
+            }
+            bubbleLoading.className = 'chat-bubble ' + (tipo || 'bot');
+            bubbleLoading.textContent = texto;
+            bubbleLoading.removeAttribute('aria-label');
+            mensagens.scrollTop = mensagens.scrollHeight;
+        }
+
+        function perguntarIA(pergunta, bubbleLoading) {
+            var body = new URLSearchParams();
+            body.append('pergunta', pergunta);
+            body.append('tela', window.location.pathname);
+
+            return fetch(urlPerguntar, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrf,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: body.toString(),
+                credentials: 'same-origin',
+            })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                return resp.json();
+            })
+            .then(function (data) {
+                var texto = (data && data.resposta) || MSG_ERRO;
+                trocarLoadingPor(bubbleLoading, texto, 'bot');
+            })
+            .catch(function () {
+                trocarLoadingPor(bubbleLoading, MSG_ERRO, 'bot');
+            });
         }
 
         function enviar(texto) {
@@ -87,7 +131,14 @@
             if (!t) return;
             adicionarMensagem(t, 'user');
             input.value = '';
-            setTimeout(function () { adicionarMensagem(responder(t), 'bot'); }, 350);
+
+            if (!iaDisponivel) {
+                adicionarMensagem(MSG_OFFLINE, 'bot');
+                return;
+            }
+
+            var loading = adicionarLoading();
+            perguntarIA(t, loading);
         }
 
         form.addEventListener('submit', function (e) {

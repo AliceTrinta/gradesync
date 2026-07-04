@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="pt-br" data-theme="{{ prefs_conta.tema|default:'claro' }}">
+<html lang="{{ prefs_conta.idioma|default:'pt-BR' }}" data-theme="{{ prefs_conta.tema|default:'claro' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,7 +17,7 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body
-    class="fonte-{{ prefs_acessibilidade.tamanho_fonte|default:'medio' }}{% if prefs_acessibilidade.alto_contraste %} alto-contraste{% endif %}{% if prefs_acessibilidade.reduzir_animacoes %} reduzir-animacoes{% endif %}"
+    class="fonte-{{ prefs_acessibilidade.tamanho_fonte|default:'medio' }}{% if prefs_acessibilidade.alto_contraste %} alto-contraste{% endif %}{% if prefs_acessibilidade.reduzir_animacoes %} reduzir-animacoes{% endif %}{% if prefs_acessibilidade.sublinhar_links %} sublinhar-links{% endif %}"
 >
     <div class="page-shell">
         <header class="topbar">

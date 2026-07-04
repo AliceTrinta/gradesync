@@ -32,7 +32,6 @@ class NotificacaoService:
     def excluir(self, notif_id, aluno):
         return self.notificacao_repository.delete(notif_id, aluno)
 
-    # Helpers de conveniencia para criar notificacoes tipadas
     def info(self, aluno, titulo, mensagem, link_acao=""):
         return self.criar(aluno=aluno, titulo=titulo, mensagem=mensagem,
                           tipo=Notificacao.TIPO_INFO, link_acao=link_acao)

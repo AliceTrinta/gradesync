@@ -1,0 +1,117 @@
+{% extends 'app/base.html' %}
+
+{% block title %}GradeSync | Privacidade{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <a class="back-link" href="{% url 'app:configuracoes' %}" aria-label="Voltar para configurações">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-header-body">
+        <h1>Privacidade e dados</h1>
+        <p>Saiba quais dados o GradeSync guarda sobre você e o que pode fazer com eles.</p>
+    </div>
+</section>
+
+<div class="settings-group">
+    <h3 class="settings-group-title">O que guardamos</h3>
+
+    <div class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-id-card"></i></div>
+            <div class="settings-item-body">
+                <strong>Perfil</strong>
+                <p>Nome, matrícula, e-mail e usuário fornecidos no cadastro.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-regular fa-calendar"></i></div>
+            <div class="settings-item-body">
+                <strong>Grade e roteiro</strong>
+                <p>Disciplinas escolhidas, cargas horárias e blocos de estudo do seu semestre.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-sliders"></i></div>
+            <div class="settings-item-body">
+                <strong>Preferências</strong>
+                <p>Idioma, tema, tamanho da fonte, contraste, animações e sublinhado de links.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="settings-group">
+    <h3 class="settings-group-title">O que fazemos com esses dados</h3>
+
+    <div class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="settings-item-body">
+                <strong>Uso interno</strong>
+                <p>
+                    Todos os dados ficam armazenados apenas no banco do GradeSync
+                    e são usados exclusivamente para montar a sua grade,
+                    gerar o roteiro semanal e aplicar as suas preferências.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-ban"></i></div>
+            <div class="settings-item-body">
+                <strong>Não compartilhamos</strong>
+                <p>
+                    Nada é enviado a serviços de terceiros, publicidade ou
+                    análise externa. Você é a única pessoa com acesso à sua conta.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="settings-group">
+    <h3 class="settings-group-title">Seus direitos</h3>
+
+    <div class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-solid fa-eye"></i></div>
+            <div class="settings-item-body">
+                <strong>Acessar seus dados</strong>
+                <p>
+                    Todas as informações da sua conta ficam visíveis nas
+                    telas de Grade, Roteiro, Configurações e Acessibilidade.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-item">
+        <div class="settings-item-left">
+            <div class="settings-item-icon"><i class="fa-regular fa-trash-can"></i></div>
+            <div class="settings-item-body">
+                <strong>Excluir seus dados</strong>
+                <p>
+                    Para remover uma grade ou o roteiro atual, use os botões
+                    <strong>Excluir</strong> nas próprias telas. Para apagar
+                    a conta inteira, entre em contato com o administrador do sistema.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="text-soft" style="margin-top: 16px;">
+    <i class="fa-solid fa-circle-info"></i>
+    O GradeSync é um projeto acadêmico. Esta página descreve o
+    tratamento de dados atual do ambiente e evolui junto com o produto.
+</p>
+{% endblock %}

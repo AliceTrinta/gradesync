@@ -471,7 +471,7 @@ class RoteiroEditorBlocoUnitTests(TestCase):
         slots = kwargs["slots"]
         self.assertEqual(len(slots), 1)
         bloco = slots[0]
-        self.assertTrue(bloco["id"])  # uuid4.hex nao vazio
+        self.assertTrue(bloco["id"])
         self.assertEqual(bloco["dia"], "seg")
         self.assertEqual(bloco["hora_inicio"], "14:00")
         self.assertEqual(bloco["hora_final"], "16:00")
@@ -584,7 +584,7 @@ class RoteiroEditorBlocoUnitTests(TestCase):
             hora_inicio="08:00",
             hora_final="10:00",
             titulo="Novo titulo",
-            cor="amber",
+            cor="orange",
         )
         _, kwargs = repo.update.call_args
         slots = kwargs["slots"]
@@ -592,7 +592,7 @@ class RoteiroEditorBlocoUnitTests(TestCase):
         editado = next(s for s in slots if s["id"] == "abc")
         self.assertEqual(editado["titulo"], "Novo titulo")
         self.assertEqual(editado["hora_final"], "10:00")
-        self.assertEqual(editado["cor"], "amber")
+        self.assertEqual(editado["cor"], "orange")
         outro = next(s for s in slots if s["id"] == "xyz")
         self.assertEqual(outro["titulo"], "Outro")
 
@@ -658,3 +658,259 @@ class RoteiroEditorBlocoUnitTests(TestCase):
         service = RoteiroService(roteiro_repository=repo)
         with self.assertRaises(BlocoRoteiroInvalidoError):
             service.remover_bloco(SimpleNamespace(id="a"), bloco_id="qualquer")
+
+
+class RoteiroServiceIATests(TestCase):
+    """RoteiroService.sugerir_roteiro_via_ia com AIService mockado."""
+
+    def _grade_fake(self, periodo="2026.1", cargas=None):
+        """Cria um SimpleNamespace que imita o comportamento de query
+        Django usado por sugerir_roteiro_via_ia.
+
+        cargas: lista de tuplas (dia, hora_inicio_int, hora_final_int).
+        """
+        from datetime import time
+        cargas = cargas or []
+        carga_objs = [
+            SimpleNamespace(
+                dia=dia, hora_inicio=time(ini, 0), hora_final=time(fim, 0),
+            )
+            for dia, ini, fim in cargas
+        ]
+        turma = SimpleNamespace(
+            disciplina=SimpleNamespace(
+                codigo="CC-201", nome="Estruturas de Dados",
+                carga_horaria=60,
+                pre_requisitos=SimpleNamespace(all=lambda: []),
+            ),
+            carga_horarias=SimpleNamespace(all=lambda: carga_objs),
+        )
+        turmas_manager = SimpleNamespace(
+            select_related=lambda *_: SimpleNamespace(all=lambda: [turma]),
+        )
+        return SimpleNamespace(periodo=periodo, turmas=turmas_manager)
+
+    def test_sugerir_via_ia_sem_grade_levanta_erro(self):
+        repo = Mock()
+        service = RoteiroService(roteiro_repository=repo)
+        ai = Mock()
+
+        with self.assertRaises(RoteiroSemGradeError):
+            service.sugerir_roteiro_via_ia(
+                aluno=SimpleNamespace(id="a"), grade=None, ai_service=ai,
+            )
+        ai.sugerir_roteiro.assert_not_called()
+        repo.upsert_by_aluno.assert_not_called()
+
+    @patch("app.services.roteiro_service.Turma")
+    def test_sugerir_via_ia_com_slots_validos_salva_e_marca_prompt_com_ia(
+        self, turma_mock,
+    ):
+        chain = turma_mock.objects.filter.return_value
+        chain.select_related.return_value.prefetch_related.return_value = []
+
+        repo = Mock()
+        repo.upsert_by_aluno.side_effect = lambda **kw: SimpleNamespace(**kw)
+        service = RoteiroService(roteiro_repository=repo)
+
+        ai = Mock()
+        ai.sugerir_roteiro.return_value = {
+            "slots": [
+                {"dia": "seg", "hora_inicio": "14:00", "hora_final": "16:00",
+                 "titulo": "Estudar CC-201", "cor": "blue"},
+                {"dia": "qua", "hora_inicio": "10:00", "hora_final": "12:00",
+                 "titulo": "Estudar CC-201", "cor": "green"},
+                {"dia": "qui", "hora_inicio": "16:00", "hora_final": "18:00",
+                 "titulo": "Estudar CC-201", "cor": "red"},
+                {"dia": "sex", "hora_inicio": "08:00", "hora_final": "10:00",
+                 "titulo": "Estudar CC-201", "cor": "orange"},
+            ],
+            "raciocinio": "distribui em 4 dias diferentes",
+        }
+        grade = self._grade_fake()
+
+        service.sugerir_roteiro_via_ia(
+            aluno=SimpleNamespace(id="a"), grade=grade, ai_service=ai,
+        )
+
+        repo.upsert_by_aluno.assert_called_once()
+        _, kwargs = repo.upsert_by_aluno.call_args
+        self.assertEqual(len(kwargs["slots"]), 4)
+        self.assertTrue(kwargs["prompt_usado"].startswith("[IA]"))
+        self.assertIn("distribui em 4 dias", kwargs["prompt_usado"])
+
+    @patch("app.services.roteiro_service.Turma")
+    def test_sugerir_via_ia_com_menos_de_min_slots_cai_no_fallback(
+        self, turma_mock,
+    ):
+        chain = turma_mock.objects.filter.return_value
+        chain.select_related.return_value.prefetch_related.return_value = []
+
+        repo = Mock()
+        repo.upsert_by_aluno.side_effect = lambda **kw: SimpleNamespace(**kw)
+        service = RoteiroService(roteiro_repository=repo)
+
+        ai = Mock()
+        ai.sugerir_roteiro.return_value = {
+            "slots": [
+                {"dia": "seg", "hora_inicio": "14:00", "hora_final": "16:00",
+                 "titulo": "X", "cor": "blue"},
+                {"dia": "qua", "hora_inicio": "10:00", "hora_final": "12:00",
+                 "titulo": "Y", "cor": "green"},
+            ],
+            "raciocinio": "poucos blocos",
+        }
+        grade = self._grade_fake()
+
+        service.sugerir_roteiro_via_ia(
+            aluno=SimpleNamespace(id="a"), grade=grade, ai_service=ai,
+        )
+
+        _, kwargs = repo.upsert_by_aluno.call_args
+        self.assertIn("fallback", kwargs["prompt_usado"])
+        self.assertGreaterEqual(len(kwargs["slots"]), 3)
+
+    @patch("app.services.roteiro_service.Turma")
+    def test_sugerir_via_ia_filtra_slot_antes_das_06_ou_depois_das_22(
+        self, turma_mock,
+    ):
+        chain = turma_mock.objects.filter.return_value
+        chain.select_related.return_value.prefetch_related.return_value = []
+
+        repo = Mock()
+        repo.upsert_by_aluno.side_effect = lambda **kw: SimpleNamespace(**kw)
+        service = RoteiroService(roteiro_repository=repo)
+
+        ai = Mock()
+        ai.sugerir_roteiro.return_value = {
+            "slots": [
+                {"dia": "seg", "hora_inicio": "05:00", "hora_final": "06:00",
+                 "titulo": "Madrugada", "cor": "blue"},
+                {"dia": "seg", "hora_inicio": "22:00", "hora_final": "23:00",
+                 "titulo": "Tarde da noite", "cor": "blue"},
+                {"dia": "ter", "hora_inicio": "14:00", "hora_final": "16:00",
+                 "titulo": "OK 1", "cor": "blue"},
+                {"dia": "qua", "hora_inicio": "10:00", "hora_final": "12:00",
+                 "titulo": "OK 2", "cor": "green"},
+                {"dia": "qui", "hora_inicio": "16:00", "hora_final": "18:00",
+                 "titulo": "OK 3", "cor": "red"},
+                {"dia": "sex", "hora_inicio": "08:00", "hora_final": "10:00",
+                 "titulo": "OK 4", "cor": "orange"},
+            ],
+            "raciocinio": "com dois blocos invalidos",
+        }
+        grade = self._grade_fake()
+
+        service.sugerir_roteiro_via_ia(
+            aluno=SimpleNamespace(id="a"), grade=grade, ai_service=ai,
+        )
+
+        _, kwargs = repo.upsert_by_aluno.call_args
+        self.assertEqual(len(kwargs["slots"]), 4)
+        for slot in kwargs["slots"]:
+            self.assertGreaterEqual(slot["hora_inicio"], "06:00")
+            self.assertLessEqual(slot["hora_final"], "22:00")
+
+    @patch("app.services.roteiro_service.Turma")
+    def test_sugerir_via_ia_filtra_slots_conflitantes_com_grade(
+        self, turma_mock,
+    ):
+        from datetime import time
+        carga = SimpleNamespace(
+            dia="ter", hora_inicio=time(10, 0), hora_final=time(12, 0),
+        )
+        turma = SimpleNamespace(
+            disciplina=SimpleNamespace(codigo="CC-101"),
+            carga_horarias=SimpleNamespace(all=lambda: [carga]),
+        )
+        chain = turma_mock.objects.filter.return_value
+        chain.select_related.return_value.prefetch_related.return_value = [turma]
+
+        repo = Mock()
+        repo.upsert_by_aluno.side_effect = lambda **kw: SimpleNamespace(**kw)
+        service = RoteiroService(roteiro_repository=repo)
+
+        ai = Mock()
+        ai.sugerir_roteiro.return_value = {
+            "slots": [
+                {"dia": "ter", "hora_inicio": "10:00", "hora_final": "12:00",
+                 "titulo": "Conflita", "cor": "blue"},
+                {"dia": "seg", "hora_inicio": "14:00", "hora_final": "16:00",
+                 "titulo": "OK 1", "cor": "blue"},
+                {"dia": "qua", "hora_inicio": "10:00", "hora_final": "12:00",
+                 "titulo": "OK 2", "cor": "green"},
+                {"dia": "qui", "hora_inicio": "16:00", "hora_final": "18:00",
+                 "titulo": "OK 3", "cor": "red"},
+                {"dia": "sex", "hora_inicio": "08:00", "hora_final": "10:00",
+                 "titulo": "OK 4", "cor": "orange"},
+            ],
+            "raciocinio": "-",
+        }
+        grade = self._grade_fake(cargas=[("ter", 10, 12)])
+
+        service.sugerir_roteiro_via_ia(
+            aluno=SimpleNamespace(id="a"), grade=grade, ai_service=ai,
+        )
+
+        _, kwargs = repo.upsert_by_aluno.call_args
+        self.assertEqual(len(kwargs["slots"]), 4)
+        for slot in kwargs["slots"]:
+            self.assertFalse(
+                slot["dia"] == "ter" and slot["hora_inicio"] == "10:00",
+                "Slot conflitante nao deveria ter sido salvo",
+            )
+
+    @patch("app.services.roteiro_service.Turma")
+    def test_sugerir_via_ia_propaga_ai_provider_error(self, turma_mock):
+        from app.exceptions import AIProviderError
+        chain = turma_mock.objects.filter.return_value
+        chain.select_related.return_value.prefetch_related.return_value = []
+
+        repo = Mock()
+        service = RoteiroService(roteiro_repository=repo)
+
+        ai = Mock()
+        ai.sugerir_roteiro.side_effect = AIProviderError("boom")
+        grade = self._grade_fake()
+
+        with self.assertRaises(AIProviderError):
+            service.sugerir_roteiro_via_ia(
+                aluno=SimpleNamespace(id="a"), grade=grade, ai_service=ai,
+            )
+        repo.upsert_by_aluno.assert_not_called()
+
+    def test_blocos_livres_da_grade_respeita_faixa_06_22(self):
+        service = RoteiroService(roteiro_repository=Mock())
+        grade = self._grade_fake(cargas=[("seg", 8, 10), ("qua", 14, 16)])
+
+        blocos = service._blocos_livres_da_grade(grade)
+
+        for _, ini, fim in blocos:
+            self.assertGreaterEqual(ini, "06:00")
+            self.assertLessEqual(fim, "22:00")
+        segs = [(ini, fim) for dia, ini, fim in blocos if dia == "seg"]
+        for ini, fim in segs:
+            self.assertFalse(ini == "08:00" and fim == "10:00")
+
+    def test_blocos_livres_grade_vazia_retorna_semana_toda_livre(self):
+        service = RoteiroService(roteiro_repository=Mock())
+        grade = self._grade_fake(cargas=[])
+        blocos = service._blocos_livres_da_grade(grade)
+
+        self.assertEqual(len(blocos), 6)
+        for dia, ini, fim in blocos:
+            self.assertEqual(ini, "06:00")
+            self.assertEqual(fim, "22:00")
+
+    def test_disciplinas_meta_da_grade_inclui_codigo_nome_carga(self):
+        service = RoteiroService(roteiro_repository=Mock())
+        grade = self._grade_fake(cargas=[("ter", 8, 10)])
+        meta = service._disciplinas_meta_da_grade(grade)
+
+        self.assertEqual(len(meta), 1)
+        self.assertEqual(meta[0]["codigo"], "CC-201")
+        self.assertEqual(meta[0]["nome"], "Estruturas de Dados")
+        self.assertEqual(meta[0]["carga_horaria"], 60)
+        self.assertEqual(meta[0]["horarios_de_aula"], [("ter", "08:00", "10:00")])
+        self.assertEqual(meta[0]["pre_requisitos"], [])
+

@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from app import __version__
 
 
@@ -16,6 +18,7 @@ def gradesync_context(request):
         "app_name": "GradeSync",
         "app_version": __version__,
         "version": __version__,
+        "ia_disponivel": bool(getattr(settings, "AI_API_KEY", "")),
     }
 
     if not request.user.is_authenticated:

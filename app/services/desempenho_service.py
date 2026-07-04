@@ -57,10 +57,6 @@ class DesempenhoService:
             )
         return sorted(resultado, key=lambda r: r["disciplina"].codigo)
 
-    # -----------------------------------------------------------------
-    # Helpers
-    # -----------------------------------------------------------------
-
     def _media_de(self, queryset):
         notas = list(queryset.values_list("nota", flat=True))
         if not notas:

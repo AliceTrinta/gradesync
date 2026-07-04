@@ -14,10 +14,6 @@ class SimulacaoService:
         self.simulacao_repository = simulacao_repository or SimulacaoRepository()
         self.grade_repository = grade_repository or GradeRepository()
 
-    # ------------------------------------------------------------------
-    # CRUD
-    # ------------------------------------------------------------------
-
     def criar_simulacao(self, *, periodo, aluno, turmas=None):
         return self.simulacao_repository.create(
             periodo=periodo,
@@ -50,10 +46,6 @@ class SimulacaoService:
     def excluir_simulacao(self, simulacao_id):
         return self.simulacao_repository.delete(simulacao_id)
 
-    # ------------------------------------------------------------------
-    # Confirmar simulacao -> Grade
-    # ------------------------------------------------------------------
-
     @transaction.atomic
     def confirmar_simulacao(self, simulacao_id):
         simulacao = self.simulacao_repository.get(simulacao_id)
@@ -67,10 +59,6 @@ class SimulacaoService:
         )
         self.simulacao_repository.delete(simulacao.id)
         return grade
-
-    # ------------------------------------------------------------------
-    # Validações de negocio
-    # ------------------------------------------------------------------
 
     def validar_prerequisitos(self, *, aluno, disciplina, nota_minima_aprovacao=5):
         """Levanta PrerequisitoNaoAtendidoError se aluno nao passou nos pre-reqs.
@@ -98,13 +86,11 @@ class SimulacaoService:
 
         Levanta ConflitoDeHorarioError na primeira sobreposicao encontrada.
         """
-        # Agrupa cargas por (turma, dia)
         cargas_por_turma = []
         for turma in turmas:
             for carga in turma.carga_horarias.all():
                 cargas_por_turma.append((turma, carga))
 
-        # Compara todos os pares
         for i in range(len(cargas_por_turma)):
             for j in range(i + 1, len(cargas_por_turma)):
                 turma_a, carga_a = cargas_por_turma[i]
@@ -115,10 +101,6 @@ class SimulacaoService:
                     continue
                 if self._intervalos_se_sobrepoem(carga_a, carga_b):
                     raise ConflitoDeHorarioError(turma_a, turma_b, carga_a, carga_b)
-
-    # ------------------------------------------------------------------
-    # Helpers internos
-    # ------------------------------------------------------------------
 
     def _validar_simulacao_completa(self, simulacao, turmas):
         erros = {}

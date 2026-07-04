@@ -25,6 +25,7 @@ urlpatterns = [
 
     path("roteiro/", views.roteiro, name="roteiro"),
     path("roteiro/criar/", views.roteiro_criar, name="roteiro-criar"),
+    path("roteiro/criar-ia/", views.roteiro_criar_ia, name="roteiro-criar-ia"),
     path("roteiro/excluir/", views.roteiro_excluir, name="roteiro-excluir"),
     path(
         "roteiro/blocos/adicionar/",
@@ -56,9 +57,11 @@ urlpatterns = [
 
     path("configuracoes/", views.configuracoes, name="configuracoes"),
     path("acessibilidade/", views.acessibilidade, name="acessibilidade"),
+    path("privacidade/", views.privacidade, name="privacidade"),
     path("dispositivos/", views.dispositivos, name="dispositivos"),
 
     path("duvidas/", views.duvidas, name="duvidas"),
+    path("duvidas/perguntar/", views.duvidas_perguntar, name="duvidas-perguntar"),
     path("sobre/", views.sobre, name="sobre"),
     path("idiomas/", views.idiomas, name="idiomas"),
 ]

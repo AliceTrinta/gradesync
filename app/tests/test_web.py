@@ -3,6 +3,8 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
+from types import SimpleNamespace as SimpleNamespaceMock
+
 from app import __version__
 from app.cursos import periodo_atual_permitido
 from app.models import (
@@ -141,7 +143,6 @@ class WebViewsTests(TestCase):
         )
 
     def test_sobre_e_duvidas_sao_publicas(self):
-        # Ambas devem renderizar 200 mesmo sem login.
         for nome in ["app:sobre", "app:duvidas"]:
             with self.subTest(nome=nome):
                 response = self.client.get(reverse(nome))
@@ -350,7 +351,7 @@ class PreferenciaAcessibilidadeUITests(TestCase):
         self.assertEqual(prefs.tamanho_fonte, "grande")
         self.assertTrue(prefs.alto_contraste)
         self.assertTrue(prefs.reduzir_animacoes)
-        self.assertFalse(prefs.sublinhar_links)  # nao veio no POST
+        self.assertFalse(prefs.sublinhar_links)
 
     def test_prefs_aplicadas_no_body_do_base(self):
         self.client.post(
@@ -365,7 +366,7 @@ class PreferenciaAcessibilidadeUITests(TestCase):
     def test_post_valor_invalido_de_fonte_ignorado(self):
         response = self.client.post(
             reverse("app:acessibilidade"),
-            {"tamanho_fonte": "gigantesco"},  # invalido
+            {"tamanho_fonte": "gigantesco"},
         )
         self.assertEqual(response.status_code, 302)
         prefs = PreferenciaAcessibilidade.objects.get(aluno=self.aluno)
@@ -465,7 +466,6 @@ class GradeUITests(TestCase):
         self.client.login(username="aluno_grade", password="senha-forte-123")
         self.aluno = Aluno.objects.get(matricula="2026010")
 
-        # Popula catalogo minimo (2 disciplinas por curso + cargas)
         call_command("seed_dados", verbosity=0)
 
     def test_grade_list_vazia_mostra_cta(self):
@@ -483,7 +483,6 @@ class GradeUITests(TestCase):
         response = self.client.get(reverse("app:grade-criar") + "?curso=CC")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "CC-101")
-        # Nao deve mostrar disciplinas do curso de ADM
         self.assertNotContains(response, "ADM-101")
 
     def test_criar_grade_com_selecoes_valida_e_redireciona(self):
@@ -507,7 +506,6 @@ class GradeUITests(TestCase):
         self.assertEqual(grade.turmas.first().disciplina_id, disc.id)
 
     def test_criar_grade_com_conflito_de_horario_mostra_erro(self):
-        # Duas disciplinas do mesmo curso, na mesma carga horaria => conflito.
         disc_a, disc_b = list(
             Disciplina.objects.filter(codigo__istartswith="CC-").order_by("codigo")[:2]
         )
@@ -523,7 +521,6 @@ class GradeUITests(TestCase):
                 f"cargas_{disc_b.id}": [str(carga.id)],
             },
         )
-        # Nao redireciona: renderiza o form com mensagem de erro.
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Grade.objects.filter(aluno=self.aluno).exists())
         self.assertContains(response, "Conflito de hor")
@@ -579,7 +576,6 @@ class GradeUITests(TestCase):
             ],
         )
 
-        # aluno_grade nao pode ver grade do outro.
         response = self.client.get(
             reverse("app:grade-detalhe", kwargs={"grade_id": grade_do_outro.id})
         )
@@ -617,7 +613,6 @@ class SeedDadosCommandTests(TestCase):
     """Comando seed_dados popula catalogo dos 2 cursos."""
 
     def test_seed_cria_professores_cargas_e_disciplinas(self):
-        # Estado inicial vazio.
         self.assertEqual(Professor.objects.count(), 0)
         self.assertEqual(CargaHoraria.objects.count(), 0)
         self.assertEqual(Disciplina.objects.count(), 0)
@@ -639,7 +634,6 @@ class SeedDadosCommandTests(TestCase):
         cargas_1 = CargaHoraria.objects.count()
         disciplinas_1 = Disciplina.objects.count()
 
-        # Rodar de novo nao deve duplicar.
         call_command("seed_dados", verbosity=0)
 
         self.assertEqual(Professor.objects.count(), professores_1)
@@ -1030,3 +1024,398 @@ class RoteiroEditorUITests(TestCase):
         self.assertContains(response, "Adicionar bloco")
         self.assertContains(response, "Editar")
         self.assertContains(response, "Remover")
+
+
+class CadastroLabelsPtBrTests(TestCase):
+    def test_labels_pt_br_aparecem_no_form(self):
+        response = self.client.get(reverse("app:cadastro"))
+        self.assertEqual(response.status_code, 200)
+        for label in ("Nome", "Sobrenome", "E-mail", "Usu\u00e1rio",
+                      "Matr\u00edcula", "Senha", "Confirme a senha"):
+            with self.subTest(label=label):
+                self.assertContains(response, label)
+        self.assertNotContains(response, "First name")
+        self.assertNotContains(response, "Password confirm")
+
+    def test_login_labels_pt_br(self):
+        response = self.client.get(reverse("app:login"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Usu\u00e1rio")
+        self.assertContains(response, "Senha")
+
+
+class SublinharLinksTests(TestCase):
+    def setUp(self):
+        AlunoService().criar_aluno(
+            matricula="2026901",
+            username="aluno_subl",
+            password="senha-forte-123",
+            email="a@example.com",
+            first_name="A",
+        )
+        self.client.login(username="aluno_subl", password="senha-forte-123")
+
+    def test_ativar_sublinhar_aplica_classe_no_body(self):
+        self.client.post(
+            reverse("app:acessibilidade"),
+            {"tamanho_fonte": "medio", "sublinhar_links": "on"},
+        )
+        response = self.client.get(reverse("app:home"))
+        self.assertContains(response, "sublinhar-links")
+
+    def test_sem_sublinhar_nao_adiciona_classe(self):
+        response = self.client.get(reverse("app:home"))
+        self.assertNotContains(response, "sublinhar-links")
+
+
+class HtmlLangDinamicoTests(TestCase):
+    def setUp(self):
+        AlunoService().criar_aluno(
+            matricula="2026902",
+            username="aluno_lang",
+            password="senha-forte-123",
+            email="a@example.com",
+            first_name="A",
+        )
+        self.client.login(username="aluno_lang", password="senha-forte-123")
+
+    def test_idioma_default_pt_br_no_html_lang(self):
+        response = self.client.get(reverse("app:home"))
+        self.assertContains(response, 'lang="pt-BR"')
+
+    def test_idioma_en_us_aplicado_no_html_lang(self):
+        self.client.post(
+            reverse("app:configuracoes"),
+            {"idioma": "en-US", "tema": "claro"},
+        )
+        response = self.client.get(reverse("app:home"))
+        self.assertContains(response, 'lang="en-US"')
+
+
+class PrivacidadeUITests(TestCase):
+    def setUp(self):
+        AlunoService().criar_aluno(
+            matricula="2026903",
+            username="aluno_priv",
+            password="senha-forte-123",
+            email="a@example.com",
+            first_name="A",
+        )
+
+    def test_privacidade_exige_login(self):
+        response = self.client.get(reverse("app:privacidade"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("app:login"), response.url)
+
+    def test_privacidade_renderiza_para_aluno_logado(self):
+        self.client.login(username="aluno_priv", password="senha-forte-123")
+        response = self.client.get(reverse("app:privacidade"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Privacidade")
+        self.assertContains(response, "Perfil")
+        self.assertContains(response, "Grade e roteiro")
+
+    def test_config_link_privacidade_nao_aponta_mais_para_admin(self):
+        self.client.login(username="aluno_priv", password="senha-forte-123")
+        response = self.client.get(reverse("app:configuracoes"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("app:privacidade"))
+        priv_index = response.content.decode().find(">Privacidade<")
+        self.assertGreater(priv_index, 0)
+        trecho = response.content.decode()[max(0, priv_index - 400):priv_index]
+        self.assertNotIn("/admin/", trecho)
+
+
+class EsqueceuSenhaTests(TestCase):
+    def setUp(self):
+        AlunoService().criar_aluno(
+            matricula="2026904",
+            username="aluno_reset",
+            password="senha-forte-123",
+            email="reset@example.com",
+            first_name="A",
+        )
+
+    def test_login_page_tem_link_esqueceu_senha(self):
+        response = self.client.get(reverse("app:login"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Esqueceu a sua senha")
+        self.assertContains(response, reverse("password_reset"))
+
+    def test_form_de_reset_renderiza(self):
+        response = self.client.get(reverse("password_reset"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "E-mail")
+
+    def test_post_email_valido_envia_mensagem_e_redireciona(self):
+        from django.core import mail
+
+        response = self.client.post(
+            reverse("password_reset"),
+            {"email": "reset@example.com"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("password_reset_done"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("GradeSync", mail.outbox[0].subject)
+
+    def test_pagina_done_renderiza(self):
+        response = self.client.get(reverse("password_reset_done"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Verifique seu e-mail")
+
+    def test_pagina_complete_renderiza(self):
+        response = self.client.get(reverse("password_reset_complete"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "atualizada")
+
+
+class GradeFormEmptyStateTests(TestCase):
+    def setUp(self):
+        AlunoService().criar_aluno(
+            matricula="2026905",
+            username="aluno_empty",
+            password="senha-forte-123",
+            email="a@example.com",
+            first_name="A",
+        )
+        self.client.login(username="aluno_empty", password="senha-forte-123")
+
+    def test_curso_sem_disciplinas_mostra_painel_e_dica_de_seed(self):
+        response = self.client.get(reverse("app:grade-criar") + "?curso=CC")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Nenhuma disciplina cadastrada")
+        self.assertContains(response, "seed_dados")
+        self.assertNotContains(response, "Criar grade")
+
+
+class DuvidasPageTests(TestCase):
+    def test_pagina_renderiza_com_chips(self):
+        response = self.client.get(reverse("app:duvidas"))
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("Como criar uma grade?", html)
+        self.assertIn("Como editar meu roteiro?", html)
+        self.assertIn("O que s\u00e3o pr\u00e9-requisitos?", html)
+
+    def test_form_aponta_para_endpoint_ajax_com_csrf(self):
+        response = self.client.get(reverse("app:duvidas"))
+        html = response.content.decode()
+        self.assertIn("csrfmiddlewaretoken", html)
+        self.assertIn(reverse("app:duvidas-perguntar"), html)
+
+    def test_form_expoe_flag_ia_disponivel(self):
+        response = self.client.get(reverse("app:duvidas"))
+        html = response.content.decode()
+        self.assertIn("data-ia-disponivel", html)
+
+
+class RoteiroCriarIATests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        AlunoService().criar_aluno(
+            matricula="2027001",
+            username="aluno_ia_rot",
+            password="senha-forte-123",
+            email="a@example.com",
+            first_name="AlunoIA",
+        )
+        self.client.login(username="aluno_ia_rot", password="senha-forte-123")
+        self.aluno = Aluno.objects.get(matricula="2027001")
+
+    def _criar_grade_minima(self, periodo="2026.1"):
+        from datetime import time
+        disciplina = Disciplina.objects.create(
+            codigo="CC-777", nome="Disciplina Teste", taxa_de_reprovacao=5,
+        )
+        carga = CargaHoraria.objects.create(
+            dia="ter", hora_inicio=time(9, 0), hora_final=time(11, 0)
+        )
+        return GradeService().criar_grade_do_aluno(
+            aluno=self.aluno, periodo=periodo,
+            selecoes=[{
+                "disciplina_id": str(disciplina.id),
+                "carga_horaria_ids": [str(carga.id)],
+            }],
+        )
+
+    def test_get_no_endpoint_devolve_405(self):
+        response = self.client.get(reverse("app:roteiro-criar-ia"))
+        self.assertEqual(response.status_code, 405)
+
+    def test_sem_grade_redireciona_para_grade_list_com_erro(self):
+        response = self.client.post(reverse("app:roteiro-criar-ia"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("app:grade-list"))
+        self.assertFalse(Roteiro.objects.filter(aluno=self.aluno).exists())
+
+    def test_exige_login(self):
+        self.client.logout()
+        response = self.client.post(reverse("app:roteiro-criar-ia"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("app:login"), response.url)
+
+    def test_ia_com_sucesso_salva_roteiro_com_prompt_marcado_como_ia(self):
+        from unittest.mock import patch
+        self._criar_grade_minima()
+
+        roteiro_falso = SimpleNamespaceMock(
+            slots=[
+                {"dia": "seg", "hora_inicio": "14:00", "hora_final": "16:00",
+                 "titulo": "X", "cor": "blue"},
+                {"dia": "qua", "hora_inicio": "10:00", "hora_final": "12:00",
+                 "titulo": "Y", "cor": "green"},
+                {"dia": "qui", "hora_inicio": "16:00", "hora_final": "18:00",
+                 "titulo": "Z", "cor": "red"},
+                {"dia": "sex", "hora_inicio": "08:00", "hora_final": "10:00",
+                 "titulo": "W", "cor": "orange"},
+            ],
+            prompt_usado="[IA] via mock",
+        )
+        with patch(
+            "app.services.RoteiroService.sugerir_roteiro_via_ia",
+            return_value=roteiro_falso,
+        ):
+            response = self.client.post(reverse("app:roteiro-criar-ia"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("app:roteiro"))
+
+    def test_ia_indisponivel_cai_no_gerador_padrao_com_warning(self):
+        from unittest.mock import patch
+        from app.exceptions import AIProviderError
+        self._criar_grade_minima()
+
+        with patch(
+            "app.services.RoteiroService.sugerir_roteiro_via_ia",
+            side_effect=AIProviderError("boom"),
+        ):
+            response = self.client.post(
+                reverse("app:roteiro-criar-ia"), follow=True,
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Roteiro.objects.filter(aluno=self.aluno).exists())
+
+    def test_ia_devolve_fallback_mostra_mensagem_info(self):
+        from unittest.mock import patch
+        self._criar_grade_minima()
+
+        roteiro_fallback = SimpleNamespaceMock(
+            slots=[{"dia": "seg", "hora_inicio": "08:00",
+                    "hora_final": "10:00", "titulo": "X", "cor": "blue"}],
+            prompt_usado="[fallback determinístico apos IA devolver 2 slots]",
+        )
+        with patch(
+            "app.services.RoteiroService.sugerir_roteiro_via_ia",
+            return_value=roteiro_fallback,
+        ):
+            response = self.client.post(
+                reverse("app:roteiro-criar-ia"), follow=True,
+            )
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("gerador padr", html)
+
+
+class DuvidasPerguntarTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        AlunoService().criar_aluno(
+            matricula="2027002",
+            username="aluno_chat",
+            password="senha-forte-123",
+            email="c@example.com",
+            first_name="Chat",
+        )
+        self.client.login(username="aluno_chat", password="senha-forte-123")
+        self.aluno = Aluno.objects.get(matricula="2027002")
+
+    def test_get_no_endpoint_devolve_405(self):
+        response = self.client.get(reverse("app:duvidas-perguntar"))
+        self.assertEqual(response.status_code, 405)
+
+    def test_exige_login(self):
+        self.client.logout()
+        response = self.client.post(
+            reverse("app:duvidas-perguntar"),
+            {"pergunta": "oi"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("app:login"), response.url)
+
+    def test_pergunta_vazia_devolve_fonte_fallback_e_200(self):
+        response = self.client.post(
+            reverse("app:duvidas-perguntar"),
+            {"pergunta": "  "},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["fonte"], "fallback")
+        self.assertIn("pergunta", data["resposta"].lower())
+
+    def test_pergunta_muito_longa_devolve_fallback(self):
+        response = self.client.post(
+            reverse("app:duvidas-perguntar"),
+            {"pergunta": "x" * 501},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["fonte"], "fallback")
+        self.assertIn("500", data["resposta"])
+
+    def test_ia_com_sucesso_devolve_texto_e_fonte_ia(self):
+        from unittest.mock import patch
+        with patch(
+            "app.services.AIService.responder_duvida",
+            return_value="Resposta gerada pela IA de mentira",
+        ):
+            response = self.client.post(
+                reverse("app:duvidas-perguntar"),
+                {"pergunta": "Como criar uma grade?"},
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["fonte"], "ia")
+        self.assertEqual(data["resposta"], "Resposta gerada pela IA de mentira")
+        self.assertEqual(data["restantes"], 9)
+
+    def test_ia_indisponivel_devolve_fallback_sem_consumir_cota(self):
+        from unittest.mock import patch
+        from app.exceptions import AIProviderError
+        with patch(
+            "app.services.AIService.responder_duvida",
+            side_effect=AIProviderError("sem chave"),
+        ):
+            response = self.client.post(
+                reverse("app:duvidas-perguntar"),
+                {"pergunta": "qualquer coisa"},
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["fonte"], "fallback")
+        self.assertEqual(data["restantes"], 10)
+
+    def test_rate_limit_bloqueia_apos_10_perguntas_bem_sucedidas(self):
+        from unittest.mock import patch
+        with patch(
+            "app.services.AIService.responder_duvida",
+            return_value="ok",
+        ):
+            for i in range(10):
+                r = self.client.post(
+                    reverse("app:duvidas-perguntar"),
+                    {"pergunta": f"pergunta {i}"},
+                )
+                self.assertEqual(r.status_code, 200)
+                self.assertEqual(r.json()["fonte"], "ia")
+            r = self.client.post(
+                reverse("app:duvidas-perguntar"),
+                {"pergunta": "estourou"},
+            )
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            self.assertEqual(data["fonte"], "fallback")
+            self.assertEqual(data["restantes"], 0)
+            self.assertIn("limite", data["resposta"].lower())

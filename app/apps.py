@@ -6,5 +6,4 @@ class GradeSyncConfig(AppConfig):
     name = "app"
 
     def ready(self):
-        # Registra signal handlers (auto-cria PreferenciaAcessibilidade/PreferenciaConta).
         from app import signals  # noqa: F401

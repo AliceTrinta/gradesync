@@ -146,14 +146,31 @@
         {% endfor %}
     </ul>
     {% else %}
-    <p class="empty-state">Nenhuma disciplina encontrada para este curso.</p>
+    <div class="empty-panel">
+        <div class="empty-panel-icon">
+            <i class="fa-regular fa-folder-open"></i>
+        </div>
+        <h2>Nenhuma disciplina cadastrada para {{ nome_curso_selecionado }}</h2>
+        <p>
+            O catálogo deste curso ainda está vazio. Peça ao administrador
+            do sistema para popular as disciplinas — em ambientes de
+            desenvolvimento, basta rodar
+            <code>python manage.py seed_dados</code> no servidor.
+        </p>
+        <a href="{% url 'app:grade-criar' %}" class="secondary">
+            <i class="fa-solid fa-rotate-left"></i>
+            Escolher outro curso
+        </a>
+    </div>
     {% endif %}
 
     <div class="form-actions">
+        {% if disciplinas_com_cargas %}
         <button type="submit" class="primary">
             <i class="fa-solid fa-check"></i>
             Criar grade
         </button>
+        {% endif %}
         <a href="{% url 'app:grade-list' %}" class="secondary">Cancelar</a>
     </div>
 </form>
